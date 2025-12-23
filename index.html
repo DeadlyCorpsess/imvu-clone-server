@@ -2,44 +2,62 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Smart Spam</title>
+    <title>IMVU Clone - Blue Chat & Sitting</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         /* GLOBAL RESET */
-        body { margin: 0; overflow: hidden; background-color: #050510; font-family: 'Arial', sans-serif; color: white; }
+        body { margin: 0; overflow: hidden; background-color: #050510; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; }
         button { cursor: pointer; } input { outline: none; }
 
         /* UI OVERLAYS */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
         
-        /* CLASSIC CHAT PANEL */
-        #imvu-chat-panel { pointer-events: auto; width: 100%; background-color: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column; border-top: 2px solid #333; transition: height 0.3s; }
-        
-        #exit-btn { pointer-events: auto; position: absolute; top: 10px; right: 10px; background: #d32f2f; color: white; border: 1px solid #fff; padding: 5px 10px; font-weight: bold; font-size: 12px; z-index: 200; }
-
-        /* --- BATTLE HUD --- */
-        #battle-hud {
-            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
-            width: 450px; background: rgba(0,0,0,0.9); border: 2px solid #ffd700;
-            border-radius: 8px; padding: 10px; z-index: 200; pointer-events: auto;
-            text-align: center; display: none; 
-            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        /* --- MODERN BLUE CHAT PANEL --- */
+        #imvu-chat-panel { 
+            pointer-events: auto; 
+            width: 100%; 
+            background: linear-gradient(to top, rgba(0,0,0,0.95), rgba(10,10,25,0.85)); 
+            display: flex; 
+            flex-direction: column; 
+            border-top: 1px solid #00e5ff; 
+            box-shadow: 0 -5px 20px rgba(0, 229, 255, 0.15);
+            backdrop-filter: blur(5px);
+            transition: height 0.3s; 
         }
-        .hud-title { color: #ffd700; font-weight: bold; font-size: 14px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        
+        #exit-btn { 
+            pointer-events: auto; position: absolute; top: 15px; right: 15px; 
+            background: rgba(255, 68, 68, 0.8); color: white; border: 1px solid #ff4444; 
+            border-radius: 4px; padding: 6px 12px; font-weight: bold; font-size: 11px; z-index: 200; 
+            transition: 0.2s;
+        }
+        #exit-btn:hover { background: #ff2222; box-shadow: 0 0 10px #ff2222; }
+
+        /* --- BATTLE HUD (BLUE THEME) --- */
+        #battle-hud {
+            position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
+            width: 450px; background: rgba(10, 15, 30, 0.9); border: 1px solid #00e5ff;
+            border-radius: 8px; padding: 15px; z-index: 200; pointer-events: auto;
+            text-align: center; display: none; 
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.2);
+        }
+        .hud-title { color: #00e5ff; font-weight: bold; font-size: 14px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 5px #00e5ff; }
         .score-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-family: monospace; font-size: 14px; }
-        .score-box { width: 45%; background: #222; padding: 5px; border: 1px solid #444; border-radius: 4px; }
+        .score-box { width: 45%; background: rgba(0, 229, 255, 0.05); padding: 5px; border: 1px solid #333; border-radius: 4px; }
         .score-val { font-size: 24px; font-weight: bold; color: #fff; }
-        .mps-val { font-size: 11px; color: #aaa; }
-        .control-row { margin-top: 10px; border-top: 1px solid #333; padding-top: 5px; color: #888; font-size: 11px; }
+        .mps-val { font-size: 11px; color: #888; }
+        .control-row { margin-top: 10px; border-top: 1px solid #333; padding-top: 5px; color: #aaa; font-size: 11px; }
 
         /* --- 3D BUBBLES --- */
         .chat-bubble {
-            position: absolute; background: white; color: black; padding: 4px 8px; border-radius: 8px;
+            position: absolute; background: rgba(255,255,255,0.95); color: #000; padding: 5px 10px; border-radius: 8px;
             font-size: 11px; font-weight: bold; font-family: 'Verdana', sans-serif;
-            border: 1px solid #000; box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
             pointer-events: none; white-space: nowrap; z-index: 5; 
             animation: floatUp 3s forwards; opacity: 0.9;
         }
+        .chat-bubble::after { content: ''; position: absolute; bottom: -6px; left: 50%; transform: translateX(-50%); border-width: 6px 6px 0; border-style: solid; border-color: rgba(255,255,255,0.95) transparent transparent transparent; }
+
         @keyframes floatUp {
             0% { transform: translateY(0); opacity: 1; }
             80% { opacity: 1; }
@@ -48,85 +66,77 @@
 
         /* --- AVATAR MENU --- */
         #avatar-menu {
-            display: none; position: absolute; width: 200px;
-            background-color: rgba(0, 0, 0, 0.9); border: 1px solid #555;
-            border-radius: 5px; box-shadow: 0 0 15px rgba(0,0,0,0.8);
-            font-family: 'Segoe UI', sans-serif; font-size: 13px;
-            z-index: 150; pointer-events: auto; color: #ddd;
+            display: none; position: absolute; width: 180px;
+            background-color: rgba(10, 15, 25, 0.95); border: 1px solid #00e5ff;
+            border-radius: 6px; box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+            font-size: 13px; z-index: 150; pointer-events: auto; color: #eee; overflow: hidden;
         }
-        .menu-header { background-color: #111; padding: 6px 10px; display: flex; align-items: center; border-bottom: 1px solid #444; font-weight: bold; font-size: 14px; cursor: move; user-select: none; }
-        .close-menu { margin-left: auto; cursor: pointer; color: #888; font-size: 16px; }
-        .action-item { padding: 8px 15px; cursor: pointer; color: #eee; border-bottom: 1px solid #222; }
-        .action-item:hover { background-color: #333; color: #fff; }
+        .menu-header { background: linear-gradient(90deg, #111, #222); padding: 8px 12px; display: flex; align-items: center; border-bottom: 1px solid #333; font-weight: bold; color: #00e5ff; }
+        .close-menu { margin-left: auto; cursor: pointer; color: #888; } .close-menu:hover { color: white; }
+        .action-item { padding: 10px 15px; cursor: pointer; border-bottom: 1px solid #222; transition: 0.2s; }
+        .action-item:hover { background-color: rgba(0, 229, 255, 0.2); color: white; }
 
         /* AUTH & DASHBOARD STYLES */
-        .auth-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #1a1a1a, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; }
-        .auth-box { width: 300px; padding: 30px; background: rgba(255, 255, 255, 0.1); border: 1px solid #444; border-radius: 8px; text-align: center; }
-        .auth-input { width: 90%; padding: 10px; margin-bottom: 15px; background: #222; border: 1px solid #555; color: white; border-radius: 4px; }
-        .auth-btn { width: 100%; padding: 10px; background: linear-gradient(to bottom, #ffeb3b, #fbc02d); border: none; font-weight: bold; }
-        .link-text { margin-top: 15px; font-size: 12px; color: #aaa; cursor: pointer; text-decoration: underline; }
-        .error-msg { color: #ff5555; font-size: 12px; margin-bottom: 10px; display: none; }
+        .auth-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #1a1a2e, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; }
+        .auth-box { width: 320px; padding: 40px; background: rgba(255, 255, 255, 0.05); border: 1px solid #333; border-radius: 12px; text-align: center; box-shadow: 0 0 30px rgba(0,0,0,0.5); backdrop-filter: blur(10px); }
+        .auth-input { width: 90%; padding: 12px; margin-bottom: 15px; background: #111; border: 1px solid #444; color: white; border-radius: 6px; font-size: 14px; transition: 0.3s; }
+        .auth-input:focus { border-color: #00e5ff; box-shadow: 0 0 8px rgba(0, 229, 255, 0.3); }
+        .auth-btn { width: 100%; padding: 12px; background: linear-gradient(135deg, #00e5ff, #007ae5); border: none; font-weight: bold; color: white; border-radius: 6px; font-size: 16px; transition: 0.3s; }
+        .auth-btn:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(0, 122, 229, 0.4); }
+        .link-text { margin-top: 20px; font-size: 13px; color: #888; cursor: pointer; text-decoration: none; }
+        .error-msg { color: #ff5555; font-size: 13px; margin-bottom: 15px; display: none; background: rgba(255,85,85,0.1); padding: 5px; border-radius: 4px; }
         
         #signup-view, #dashboard-view, #room-view { display: none; }
         #login-view { display: flex; }
         
-        #dashboard-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 30% 50%, #2a2a2a, #000000); z-index: 50; }
+        #dashboard-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(to bottom, #111, #000); z-index: 50; }
         #menu-area { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .dashboard-btn { width: 150px; height: 120px; background: linear-gradient(to bottom, #555, #333 50%, #222); border: 1px solid #666; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; }
-        .dashboard-btn:hover { filter: brightness(1.2); transform: scale(1.05); }
+        .dashboard-btn { width: 160px; height: 140px; background: linear-gradient(145deg, #222, #151515); border: 1px solid #333; border-radius: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
+        .dashboard-btn:hover { border-color: #00e5ff; transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0, 229, 255, 0.15); }
 
-        /* --- SMART ANIMATED CHATBOX CSS --- */
-        #chat-interface-wrapper { display: block; }
+        /* --- BLUE CHAT ANIMATIONS (SMOOTH SLIDE) --- */
+        #chat-interface-wrapper { display: block; padding: 10px 20px; }
         
         #chat-history { 
             height: 200px; 
             overflow-y: scroll; 
-            padding: 10px; 
+            margin-bottom: 10px;
             font-size: 13px; 
-            line-height: 1.5; 
-            color: white; 
+            line-height: 1.6; 
+            color: #ddd; 
             scrollbar-width: thin; 
-            scrollbar-color: #444 #111; 
+            scrollbar-color: #00e5ff transparent; 
+        }
+        #chat-history::-webkit-scrollbar { width: 6px; }
+        #chat-history::-webkit-scrollbar-thumb { background-color: #00e5ff; border-radius: 3px; }
+
+        /* Smooth Slide-In Animation (Replaces Bouncy) */
+        @keyframes smoothSlideIn {
+            0% { opacity: 0; transform: translateX(-15px); }
+            100% { opacity: 1; transform: translateX(0); }
         }
 
         .chat-line { 
-            margin-bottom: 4px; 
-            font-family: 'Verdana', sans-serif; 
-            font-size: 12px;
-            display: block;
+            margin-bottom: 5px; 
+            display: block; 
+            animation: smoothSlideIn 0.3s ease-out forwards;
         }
 
-        /* Normal: No Animation, just appear */
-        .chat-line.normal {
-            animation: none;
-        }
-
-        /* Spam: Bouncy / Wobbly Animation */
-        @keyframes spamBounce {
-            0% { transform: scale(0.9) translateX(-2px); opacity: 0.5; }
-            40% { transform: scale(1.05) translateX(2px); opacity: 1; }
-            70% { transform: scale(0.98) translateX(-1px); }
-            100% { transform: scale(1) translateX(0); }
-        }
-
-        .chat-line.spam { 
-            animation: spamBounce 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-            transform-origin: left center;
-            color: #fff;
-            text-shadow: 0 0 5px rgba(255, 215, 0, 0.2); /* Slight glow when spamming */
-        }
-
-        .username { color: #8FBC8F; font-weight: bold; cursor: pointer; }
-        .message-text { color: #e0e0e0; }
-        .system-msg { color: #ffd700; font-style: italic; font-weight: bold; } 
+        .username { color: #00e5ff; font-weight: bold; cursor: pointer; margin-right: 5px; text-shadow: 0 0 5px rgba(0, 229, 255, 0.3); }
+        .message-text { color: #eee; }
+        .system-msg { color: #888; font-style: italic; font-size: 12px; } 
         
-        #input-row { display: flex; background-color: #111; padding: 4px; align-items: center; border-top: 1px solid #333; }
-        #msgInput { flex-grow: 1; background-color: #222; border: 1px solid #555; color: white; padding: 5px 8px; font-size: 12px; outline: none; }
-        #send-btn { background: linear-gradient(to bottom, #ffeb3b, #fbc02d); border: 1px solid #c49000; color: black; font-weight: bold; font-size: 12px; padding: 5px 20px; margin-left: 5px; cursor: pointer; }
-        #toolbar { height: 30px; background-color: #000; display: flex; align-items: center; border-bottom: 2px solid #b8860b; padding-left: 5px; }
-        .icon { width: 35px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #888; cursor: pointer; user-select: none; }
-        .icon.active { background: linear-gradient(to bottom, #ffd700, #ffb300); color: black; }
-        #scroll-notice { position: absolute; bottom: 40px; right: 20px; background: #333; color: yellow; font-size: 10px; padding: 2px 5px; display: none; z-index: 500; border: 1px solid yellow; }
+        #input-row { display: flex; align-items: center; background: rgba(255,255,255,0.05); border: 1px solid #444; border-radius: 30px; padding: 5px 5px 5px 15px; }
+        #msgInput { flex-grow: 1; background: transparent; border: none; color: white; padding: 8px 0; font-size: 13px; }
+        #send-btn { background: #00e5ff; color: #000; border: none; font-weight: bold; font-size: 12px; padding: 8px 20px; border-radius: 20px; margin-left: 10px; transition: 0.2s; }
+        #send-btn:hover { background: #fff; box-shadow: 0 0 10px #fff; }
+        
+        #toolbar { height: 40px; background-color: rgba(0,0,0,0.3); display: flex; align-items: center; padding-left: 15px; border-top: 1px solid #333; }
+        .icon { width: 40px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 18px; color: #888; cursor: pointer; transition: 0.2s; }
+        .icon:hover { color: white; }
+        .icon.active { color: #00e5ff; text-shadow: 0 0 10px #00e5ff; }
+        
+        #scroll-notice { position: absolute; bottom: 80px; left: 50%; transform: translateX(-50%); background: #00e5ff; color: black; font-weight: bold; font-size: 11px; padding: 4px 10px; border-radius: 10px; display: none; z-index: 500; }
     </style>
     <!-- Three.js CDN -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -137,44 +147,44 @@
 
     <!-- BATTLE HUD -->
     <div id="battle-hud">
-        <div class="hud-title">⚔️ SPAM WAR HUD ⚔️</div>
+        <div class="hud-title">Server Stats</div>
         <div class="score-row">
-            <div class="score-box" style="border-color: #00ff00;">
-                <div style="color:#00ff00; font-size:11px;">YOU</div>
+            <div class="score-box" style="border-color: #00e5ff;">
+                <div style="color:#00e5ff; font-size:11px; font-weight:bold;">YOU</div>
                 <div class="score-val" id="my-score">0</div>
                 <div class="mps-val" id="my-mps">0 MPS</div>
             </div>
             <div class="score-box" style="border-color: #ff5555;">
-                <div style="color:#ff5555; font-size:11px;">TOTAL LINES</div>
+                <div style="color:#ff5555; font-size:11px; font-weight:bold;">GLOBAL</div>
                 <div class="score-val" id="global-score">0</div>
             </div>
         </div>
         <div class="control-row">
-            <p>Spam to see the bouncy effect!</p>
-            <button onclick="resetBattleScores()" style="background:#333; color:#fff; border:1px solid #555; padding:2px 10px; margin-top:5px; font-size:10px;">RESET STATS</button>
+            <p>Click yellow nodes on the couch to sit.</p>
+            <button onclick="resetBattleScores()" style="background:transparent; color:#888; border:1px solid #555; padding:4px 10px; border-radius:4px; font-size:10px;">RESET</button>
         </div>
     </div>
 
     <!-- LOGIN SCREEN -->
     <div id="login-view" class="auth-container">
         <div class="auth-box">
-            <div class="auth-title" style="font-size: 24px; color: #ffd700; font-weight: bold; margin-bottom: 20px;">IMVU Classic Login</div>
+            <div class="auth-title" style="font-size: 28px; color: white; font-weight: bold; margin-bottom: 25px;">IMVU: Blue World</div>
             <div id="login-error" class="error-msg">Invalid credentials</div>
             <input type="text" id="login-user" class="auth-input" placeholder="Username">
             <input type="password" id="login-pass" class="auth-input" placeholder="Password">
-            <button class="auth-btn" onclick="handleLogin()">Sign In</button>
-            <div class="link-text" onclick="showSignup()">Sign Up</div>
+            <button class="auth-btn" onclick="handleLogin()">ENTER WORLD</button>
+            <div class="link-text" onclick="showSignup()">Create new account</div>
         </div>
     </div>
 
     <!-- SIGNUP SCREEN -->
     <div id="signup-view" class="auth-container">
         <div class="auth-box">
-            <div class="auth-title" style="font-size: 24px; color: #ffd700; font-weight: bold; margin-bottom: 20px;">Create Account</div>
+            <div class="auth-title" style="font-size: 28px; color: white; font-weight: bold; margin-bottom: 25px;">Join the Grid</div>
             <div id="signup-error" class="error-msg">Username taken</div>
-            <input type="text" id="signup-user" class="auth-input" placeholder="New Username">
-            <input type="password" id="signup-pass" class="auth-input" placeholder="New Password">
-            <button class="auth-btn" onclick="handleSignup()">Register</button>
+            <input type="text" id="signup-user" class="auth-input" placeholder="Choose Username">
+            <input type="password" id="signup-pass" class="auth-input" placeholder="Create Password">
+            <button class="auth-btn" onclick="handleSignup()">REGISTER</button>
             <div class="link-text" onclick="showLogin()">Back to Login</div>
         </div>
     </div>
@@ -182,11 +192,11 @@
     <!-- LOBBY SCREEN -->
     <div id="dashboard-view">
         <div id="menu-area">
-            <div style="width: 450px; height: 60px; background: linear-gradient(to right, #500, #900); border: 1px solid #f00; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 0 10px rgba(255,0,0,0.5);">LOBBY</div>
+            <h1 style="color:white; font-size: 40px; margin-bottom: 40px; text-shadow: 0 0 20px rgba(0, 229, 255, 0.5);">WELCOME TO THE LOBBY</h1>
             <div id="button-grid">
                 <div class="dashboard-btn" onclick="enterRoom()">
-                    <div class="btn-icon">🏠💬</div>
-                    <div class="btn-text">Enter Room</div>
+                    <div class="btn-icon">🤖</div>
+                    <div class="btn-text">Connect to Server</div>
                 </div>
             </div>
         </div>
@@ -200,25 +210,27 @@
         <!-- Context Menu -->
         <div id="avatar-menu">
             <div class="menu-header" id="menu-header-handle">
-                <span id="menu-username-display">Username</span> 
+                <span id="menu-username-display">User</span> 
                 <span class="close-menu" onclick="closeAvatarMenu()">✖</span>
             </div>
             <div class="action-item" onclick="closeAvatarMenu()">View Profile</div>
+            <div class="action-item" onclick="closeAvatarMenu()">Trade</div>
         </div>
 
-        <button id="exit-btn" onclick="exitRoom()">✖ EXIT ROOM</button>
+        <button id="exit-btn" onclick="exitRoom()">✖ DISCONNECT</button>
         
-        <!-- CLASSIC CHAT UI -->
+        <!-- BLUE CHAT UI -->
         <div id="ui-layer">
             <div id="imvu-chat-panel">
-                <div class="chat-header-bar"></div>
                 <div id="chat-interface-wrapper">
                     <div id="chat-history"></div>
-                    <div id="scroll-notice">VIEW PAUSED (Scroll down to resume)</div>
+                    <div id="scroll-notice">⇩ New Messages ⇩</div>
                     <div id="input-row">
-                        <label style="margin-right:10px; color:#aaa; font-size:10px;"><input type="checkbox" id="focus-lock-check" checked> Lock Focus</label>
-                        <input type="text" id="msgInput" placeholder="Chat here..." autocomplete="off">
-                        <button id="send-btn" onclick="sendMsg()">Send</button>
+                        <input type="text" id="msgInput" placeholder="Type a message..." autocomplete="off">
+                        <button id="send-btn" onclick="sendMsg()">SEND</button>
+                    </div>
+                    <div style="font-size:10px; color:#666; margin-top:5px; margin-left: 10px;">
+                        <label><input type="checkbox" id="focus-lock-check" checked> Auto-focus chat</label>
                     </div>
                 </div>
                 <div id="toolbar">
@@ -261,6 +273,7 @@
         function showError(id, msg) {
             const el = document.getElementById(id);
             el.style.display = 'block'; el.innerText = msg;
+            setTimeout(()=>el.style.display='none', 3000);
         }
 
         // --- ROOM MANAGEMENT ---
@@ -288,7 +301,7 @@
         const input = document.getElementById('msgInput');
         const focusLockCheck = document.getElementById('focus-lock-check');
         const scrollNotice = document.getElementById('scroll-notice');
-
+        
         input.addEventListener('blur', () => { if(focusLockCheck.checked && room.style.display!=='none') setTimeout(()=>input.focus(), 10); });
 
         socket.on('chat message', (data) => {
@@ -298,39 +311,23 @@
 
         socket.on('system message', (msg) => { renderChatLine('system', null, msg); });
 
-        // TIME TRACKING FOR SPAM DETECTION
-        let lastChatTime = 0;
-
         function renderChatLine(type, username, text) {
             const tolerance = 20;
             const isUserAtBottom = (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) < tolerance;
             const msgDiv = document.createElement('div');
             
-            // --- SPAM DETECTION LOGIC ---
-            const now = Date.now();
-            const timeDiff = now - lastChatTime;
-            lastChatTime = now;
+            // Standard smooth entry for everything
+            msgDiv.className = `chat-line`;
             
-            // If less than 800ms between messages, use 'spam' class (bouncy)
-            // Otherwise use 'normal' class (static)
-            const animationClass = (timeDiff < 800) ? 'spam' : 'normal';
-
-            msgDiv.className = `chat-line ${animationClass}`;
-            
-            if (type === 'system') msgDiv.innerHTML = `<span class="system-msg">*** ${text} ***</span>`;
+            if (type === 'system') msgDiv.innerHTML = `<span class="system-msg">★ ${text}</span>`;
             else {
-                msgDiv.innerHTML = `<span class="username">${username}:</span> <span class="message-text">${text}</span>`;
-                // Add to 3D Bubbles (Standard float)
+                msgDiv.innerHTML = `<span class="username">${username}</span> <span class="message-text">${text}</span>`;
                 createChatBubble(username, text);
             }
             chatBox.appendChild(msgDiv); 
             
-            if (isUserAtBottom) { 
-                chatBox.scrollTop = chatBox.scrollHeight; 
-                scrollNotice.style.display = 'none'; 
-            } else { 
-                scrollNotice.style.display = 'block'; 
-            }
+            if (isUserAtBottom) { chatBox.scrollTop = chatBox.scrollHeight; scrollNotice.style.display = 'none'; }
+            else { scrollNotice.style.display = 'block'; }
         }
 
         function sendMsg() {
@@ -356,28 +353,28 @@
         function resetBattleScores() { myTotal=0; globalTotal=0; document.getElementById('my-score').innerText="0"; document.getElementById('global-score').innerText="0"; }
 
         // =========================================================
-        //          3D SCENE & ROBOTS (High Quality)
+        //          3D SCENE & TEXTURED COUCH
         // =========================================================
         const container = document.getElementById('canvas-container');
         
-        // 1. Setup Scene with Fog
+        // Scene & Fog
         const scene = new THREE.Scene(); 
         scene.background = new THREE.Color(0x101020); 
         scene.fog = new THREE.Fog(0x101020, 10, 50);
 
-        // 2. Camera
+        // Camera
         const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 100);
         camera.position.set(0, 8, 15); 
 
-        // 3. Renderer with Shadows
+        // Renderer
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.outputEncoding = THREE.sRGBEncoding;
-        renderer.shadowMap.enabled = true; // Enable shadows
-        renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
+        renderer.shadowMap.enabled = true; 
+        renderer.shadowMap.type = THREE.PCFSoftShadowMap; 
         container.appendChild(renderer.domElement);
 
-        // 4. Lighting Upgrades
+        // Lights
         const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 0.6);
         hemiLight.position.set(0, 20, 0);
         scene.add(hemiLight);
@@ -385,19 +382,20 @@
         const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
         dirLight.position.set(10, 20, 10);
         dirLight.castShadow = true;
-        dirLight.shadow.camera.top = 20;
-        dirLight.shadow.camera.bottom = -20;
-        dirLight.shadow.camera.left = -20;
-        dirLight.shadow.camera.right = 20;
-        dirLight.shadow.mapSize.width = 2048; 
-        dirLight.shadow.mapSize.height = 2048;
+        dirLight.shadow.camera.top = 20; dirLight.shadow.camera.bottom = -20;
+        dirLight.shadow.camera.left = -20; dirLight.shadow.camera.right = 20;
+        dirLight.shadow.mapSize.width = 2048; dirLight.shadow.mapSize.height = 2048;
         scene.add(dirLight);
 
-        // 5. Environment
+        // Textures
+        const texLoader = new THREE.TextureLoader();
+        const leatherTex = texLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/disturb.jpg');
+        leatherTex.wrapS = leatherTex.wrapT = THREE.RepeatWrapping;
+        leatherTex.repeat.set(2, 2);
+
+        // Environment
         const grid = new THREE.GridHelper(100, 100, 0x00e5ff, 0x222222);
-        grid.position.y = 0.01;
-        grid.material.opacity = 0.2;
-        grid.material.transparent = true;
+        grid.position.y = 0.01; grid.material.opacity = 0.2; grid.material.transparent = true;
         scene.add(grid);
 
         const floorGeo = new THREE.PlaneGeometry(100, 100);
@@ -407,9 +405,14 @@
         floor.receiveShadow = true;
         scene.add(floor);
 
-        // Furniture
+        // --- COUCH WITH TEXTURE ---
         const couchGroup = new THREE.Group();
-        const couchMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
+        const couchMat = new THREE.MeshStandardMaterial({ 
+            map: leatherTex, 
+            color: 0x8B4513, // SaddleBrown
+            roughness: 0.6 
+        });
+        
         const seat = new THREE.Mesh(new THREE.BoxGeometry(8, 1, 3), couchMat); seat.position.y = 0.5; seat.castShadow=true; seat.receiveShadow=true; couchGroup.add(seat);
         const back = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 0.5), couchMat); back.position.y = 1.5; back.position.z = -1.25; back.castShadow=true; couchGroup.add(back);
         const armL = new THREE.Mesh(new THREE.BoxGeometry(1, 1.5, 3), couchMat); armL.position.set(-4.5, 0.75, 0); armL.castShadow=true; couchGroup.add(armL);
@@ -440,8 +443,10 @@
                 const av = avatars[data.id];
                 av.target.set(data.x, 0, data.z);
                 av.mesh.lookAt(data.x, 0, data.z);
+                
                 if(av.action !== 'Walking') {
                     if(av.actions['Idle']) av.actions['Idle'].fadeOut(0.2);
+                    if(av.actions['Sitting']) av.actions['Sitting'].fadeOut(0.2);
                     if(av.actions['Walking']) av.actions['Walking'].reset().fadeIn(0.2).play();
                     av.action = 'Walking';
                 }
@@ -449,12 +454,7 @@
         });
 
         socket.on('player stop', (id) => {
-             if(avatars[id]) {
-                 const av = avatars[id];
-                 if(av.actions['Walking']) av.actions['Walking'].fadeOut(0.2);
-                 if(av.actions['Idle']) av.actions['Idle'].reset().fadeIn(0.2).play();
-                 av.action = 'Idle';
-             }
+             // Handled locally
         });
 
         function spawnAvatar(id, data) {
@@ -471,10 +471,11 @@
 
                 const mixer = new THREE.AnimationMixer(model);
                 const actions = {};
-                const idle = THREE.AnimationClip.findByName(gltf.animations, 'Idle');
-                const walk = THREE.AnimationClip.findByName(gltf.animations, 'Walking');
-                if(idle) actions['Idle'] = mixer.clipAction(idle);
-                if(walk) actions['Walking'] = mixer.clipAction(walk);
+                
+                ['Idle', 'Walking', 'Sitting'].forEach(name => {
+                    const clip = THREE.AnimationClip.findByName(gltf.animations, name);
+                    if(clip) actions[name] = mixer.clipAction(clip);
+                });
                 
                 if(actions['Idle']) actions['Idle'].play();
 
@@ -509,21 +510,30 @@
             setTimeout(()=> { b.remove() }, 3000); 
         }
 
-        // --- INTERACTION ---
+        // --- INTERACTION & SITTING NODES ---
         const raycaster = new THREE.Raycaster();
         const mouse = new THREE.Vector2();
         
         const nodes = [];
-        function createNode(x, z) {
-            const geo = new THREE.CylinderGeometry(1, 1, 0.1, 8);
-            const mat = new THREE.MeshBasicMaterial({ color: 0x00e5ff, opacity: 0.1, transparent: true });
+        const seats = [];
+
+        function createNode(x, z, type='walk', y=0.05) {
+            const geo = new THREE.CylinderGeometry(type==='seat'?0.4:1, type==='seat'?0.4:1, 0.1, 16);
+            const color = type==='seat' ? 0xffff00 : 0x00e5ff;
+            const mat = new THREE.MeshBasicMaterial({ color: color, opacity: 0.4, transparent: true });
             const node = new THREE.Mesh(geo, mat);
-            node.position.set(x, 0.05, z);
-            node.userData = { type:'node', x, z };
+            node.position.set(x, y, z);
+            node.userData = { type: type, x: x, z: z };
             scene.add(node);
             nodes.push(node);
+            if(type === 'seat') seats.push(node);
         }
+
+        // Floor Nodes
         createNode(-5, 5); createNode(5, 5); createNode(0, 0); createNode(-5, -5); createNode(5, -5);
+        // Seat Nodes
+        createNode(-2, -5, 'seat', 0.6);
+        createNode(2, -5, 'seat', 0.6);
 
         renderer.domElement.addEventListener('pointerdown', (e) => {
             if(room.style.display==='none') return;
@@ -532,7 +542,7 @@
             mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
 
-            // 1. Check Movement Nodes
+            // 1. Check Movement/Seat Nodes
             const nodeHits = raycaster.intersectObjects(nodes);
             if(nodeHits.length > 0) {
                 const d = nodeHits[0].object.userData;
@@ -587,13 +597,28 @@
                 for(let id in avatars) {
                     const av = avatars[id];
                     if(av.mixer) av.mixer.update(delta);
+                    
                     if(av.mesh.position.distanceTo(av.target) > 0.1) {
                         av.mesh.position.lerp(av.target, 0.05);
                     } else if(av.action === 'Walking') {
                         if(id === mySocketId) socket.emit('stop move'); 
+                        
+                        let isSitting = false;
+                        for(let seat of seats) {
+                            const d = Math.hypot(av.mesh.position.x - seat.position.x, av.mesh.position.z - seat.position.z);
+                            if(d < 0.5) isSitting = true;
+                        }
+
                         if(av.actions['Walking']) av.actions['Walking'].fadeOut(0.2);
-                        if(av.actions['Idle']) av.actions['Idle'].reset().fadeIn(0.2).play();
-                        av.action = 'Idle';
+
+                        if(isSitting) {
+                            if(av.actions['Sitting']) av.actions['Sitting'].reset().fadeIn(0.2).play();
+                            av.action = 'Sitting';
+                            av.mesh.rotation.y = Math.PI; 
+                        } else {
+                            if(av.actions['Idle']) av.actions['Idle'].reset().fadeIn(0.2).play();
+                            av.action = 'Idle';
+                        }
                     }
                 }
                 controls.update();
