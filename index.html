@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Modern Yellow Chat</title>
+    <title>IMVU Clone - Authentic Chat</title>
     <!-- Socket.io -->
     <script src="/socket.io/socket.io.js"></script>
     <!-- Three.js & Controls -->
@@ -85,80 +85,113 @@
         #avatar-menu { display: none; position: absolute; width: 150px; background: rgba(0,0,0,0.9); border: 1px solid #555; z-index: 150; font-size: 12px; }
         .action-item { padding: 5px 10px; cursor: pointer; border-bottom: 1px solid #222; } .action-item:hover { background: #333; }
 
-        .chat-bubble { position: absolute; background: rgba(255,255,255,0.95); color: #000; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; box-shadow: 2px 2px 0px rgba(0,0,0,0.5); pointer-events: none; white-space: nowrap; z-index: 120; animation: floatUp 2.5s forwards; }
-        @keyframes floatUp { 0% { transform: translateY(0); opacity: 0; } 10% { transform: translateY(-10px); opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-80px); opacity: 0; } }
-
-        /* --- MODERN YELLOW CHATBOX (The requested style) --- */
+        /* --- CLASSIC CHATBOX (REPLICA) --- */
         #ui-layer { 
             position: absolute; bottom: 0; left: 0; width: 100%; 
-            pointer-events: none; /* Allow clicks through to 3D scene */
+            pointer-events: none; 
             z-index: 300; 
-            display: flex; flex-direction: column; 
+            display: flex; flex-direction: column; justify-content: flex-end;
         }
         
         #imvu-chat-panel { 
-            pointer-events: auto; /* Re-enable clicks for chat */
+            pointer-events: auto;
             width: 100%; 
-            /* Modern Gradient Background */
-            background: linear-gradient(to top, rgba(0,0,0,0.95), rgba(20,20,5,0.85)); 
-            border-top: 1px solid #ffd700; 
-            box-shadow: 0 -5px 20px rgba(255, 215, 0, 0.15);
-            backdrop-filter: blur(5px);
+            height: 220px; /* Adjust height as needed */
             display: flex; flex-direction: column; 
-            height: 160px;
             transition: height 0.3s;
         }
 
-        #toolbar { 
-            height: 35px; 
-            background-color: rgba(0,0,0,0.3); 
-            display: flex; align-items: center; 
-            padding-left: 15px; 
-            border-bottom: 1px solid #333;
-            flex-shrink: 0; 
+        /* 1. Chat History Area (Black) */
+        #chat-interface-wrapper { 
+            flex-grow: 1; 
+            background-color: rgba(0, 0, 0, 0.9); /* Dark semi-transparent */
+            display: flex; flex-direction: column; 
+            overflow: hidden; 
         }
-        .icon { cursor: pointer; color: #888; font-size: 18px; transition: 0.2s; } 
-        .icon:hover { color: white; }
-        .icon.active { color: #ffd700; text-shadow: 0 0 10px #ffd700; }
-        
-        #chat-interface-wrapper { flex-grow: 1; display: flex; flex-direction: column; padding: 10px 20px; overflow: hidden; }
         
         #chat-history { 
             flex-grow: 1; 
             overflow-y: auto; 
             color: #ddd; 
             font-size: 13px; 
-            line-height: 1.6;
-            margin-bottom: 10px;
+            line-height: 1.5;
+            padding: 10px;
+            font-family: 'Verdana', sans-serif;
             scrollbar-width: thin; 
-            scrollbar-color: #ffd700 transparent; 
+            scrollbar-color: #444 #111; 
         }
-        #chat-history::-webkit-scrollbar { width: 6px; }
-        #chat-history::-webkit-scrollbar-thumb { background-color: #ffd700; border-radius: 3px; }
+        .chat-line { margin-bottom: 3px; display: block; }
+        .username { color: #8FBC8F; font-weight: bold; cursor: pointer; margin-right: 5px; }
+        .message-text { color: #e0e0e0; }
+        .system-msg { color: #ffd700; font-style: italic; font-size: 12px; }
 
-        .chat-line { margin-bottom: 5px; display: block; animation: smoothSlideIn 0.3s ease-out forwards; }
-        @keyframes smoothSlideIn { 0% { opacity: 0; transform: translateX(-15px); } 100% { opacity: 1; transform: translateX(0); } }
-
-        .username { color: #ffd700; font-weight: bold; cursor: pointer; margin-right: 5px; text-shadow: 0 0 5px rgba(255, 215, 0, 0.3); }
-        .message-text { color: #eee; }
-        .system-msg { color: #888; font-style: italic; font-size: 12px; }
-        
+        /* 2. Input Bar Area (Dark Grey Strip) */
         #input-row { 
-            display: flex; align-items: center; 
-            background: rgba(255,255,255,0.05); 
+            height: 40px; 
+            background: #1a1a1a; 
+            border-top: 1px solid #333; 
+            display: flex; 
+            align-items: center; 
+            padding: 0 10px; 
+            flex-shrink: 0;
+        }
+        
+        #msgInput { 
+            flex-grow: 1; 
+            background: #000; 
             border: 1px solid #444; 
-            border-radius: 30px; 
-            padding: 5px 5px 5px 15px; 
+            color: white; 
+            padding: 6px; 
+            font-size: 13px; 
+            height: 20px;
+            margin-right: 10px;
+        }
+        
+        #send-btn { 
+            background: #ffd700; /* Classic Yellow */
+            color: black; 
+            border: 1px solid #c49000; 
+            font-weight: bold; 
+            font-size: 12px; 
+            padding: 5px 20px; 
+            cursor: pointer; 
+            border-radius: 2px;
+        }
+        #send-btn:hover { background: #ffea00; }
+
+        /* 3. Toolbar Area (Black with Yellow Line) */
+        #toolbar { 
+            height: 40px; 
+            background-color: #000; 
+            border-top: 3px solid #ffd700; /* The yellow separator */
+            display: flex; 
+            align-items: center; 
+            justify-content: center; /* Center icons */
+            gap: 20px;
             flex-shrink: 0; 
         }
-        #msgInput { flex-grow: 1; background: transparent; border: none; color: white; padding: 8px 0; font-size: 13px; }
-        #send-btn { 
-            background: #ffd700; color: #000; border: none; 
-            font-weight: bold; font-size: 12px; 
-            padding: 8px 20px; border-radius: 20px; 
-            margin-left: 10px; transition: 0.2s; 
+        
+        .icon { 
+            width: 30px; height: 30px; 
+            display: flex; align-items: center; justify-content: center; 
+            font-size: 18px; color: #888; 
+            cursor: pointer; 
+            transition: 0.2s; 
         }
-        #send-btn:hover { background: #fff; box-shadow: 0 0 10px #fff; }
+        
+        /* Active Tab Logic (Yellow Background Tab) */
+        .icon.active { 
+            background: #ffd700; 
+            color: black; 
+            border-radius: 5px 5px 0 0; /* Tab shape */
+            margin-top: 5px; /* Push down to sit on line */
+            height: 35px;
+        }
+        .icon:hover:not(.active) { color: white; }
+
+        /* Bubbles */
+        .chat-bubble { position: absolute; background: white; color: black; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; box-shadow: 2px 2px 0px rgba(0,0,0,0.5); pointer-events: none; white-space: nowrap; z-index: 120; animation: floatUp 2.5s forwards; }
+        @keyframes floatUp { 0% { transform: translateY(0); opacity: 0; } 10% { transform: translateY(-10px); opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-80px); opacity: 0; } }
     </style>
 </head>
 <body>
@@ -233,6 +266,7 @@
                 <div class="card-details">
                     <div class="card-title">Robot Lounge ... *Chill*</div>
                     <div style="color:#ffd700;">by Admin</div>
+                    <div style="margin-top:2px;">Language: English</div>
                     <div class="card-rating">
                         Rating: <span id="card-stars">☆☆☆☆☆</span> <span style="font-size:10px; color:#fff;" id="rating-text">(0/5)</span>
                     </div>
@@ -270,18 +304,29 @@
             <div class="action-item" onclick="closeAvatarMenu()">Whisper</div>
         </div>
 
-        <!-- MODERN YELLOW CHATBOX -->
+        <!-- REPLICA CHATBOX -->
         <div id="ui-layer">
             <div id="imvu-chat-panel">
+                <!-- Top: Chat Log -->
                 <div id="chat-interface-wrapper">
                     <div id="chat-history"></div>
-                    <div id="input-row">
-                        <input type="text" id="msgInput" placeholder="Type a message..." autocomplete="off">
-                        <button id="send-btn" onclick="sendMsg()">SEND</button>
-                    </div>
                 </div>
+                
+                <!-- Middle: Input Bar -->
+                <div id="input-row">
+                    <input type="text" id="msgInput" placeholder="" autocomplete="off">
+                    <button id="send-btn" onclick="sendMsg()">Send</button>
+                </div>
+
+                <!-- Bottom: Icons Toolbar -->
                 <div id="toolbar">
                     <div class="icon active" id="chat-icon" onclick="toggleChatWindow()">💬</div>
+                    <div class="icon">👕</div>
+                    <div class="icon">🧥</div>
+                    <div class="icon">🪑</div>
+                    <div class="icon">🏠</div>
+                    <div class="icon">🎵</div>
+                    <div class="icon">📷</div>
                 </div>
             </div>
         </div>
@@ -371,6 +416,7 @@
         function updateStarsDisplay(rating) {
             const stars = "★★★★★".substring(0, rating) + "☆☆☆☆☆".substring(0, 5 - rating);
             document.getElementById('card-stars').innerText = stars;
+            document.getElementById('rating-text').innerText = `(${rating}/5)`;
             document.getElementById('scene-stars').innerText = stars;
             document.getElementById('scene-stars').className = rating > 0 ? "mini-stars active" : "mini-stars";
             document.getElementById('listing-stars').innerText = stars;
@@ -395,14 +441,18 @@
         function toggleChatWindow() {
             const wrapper = document.getElementById('chat-interface-wrapper');
             const panel = document.getElementById('imvu-chat-panel');
+            const row = document.getElementById('input-row');
+            
             if(isChatOpen) { 
                 wrapper.style.display='none'; 
+                row.style.display='none';
                 panel.style.height='40px'; 
                 isChatOpen=false; 
                 document.getElementById('chat-icon').classList.remove('active'); 
             } else { 
                 wrapper.style.display='flex'; 
-                panel.style.height='160px'; 
+                row.style.display='flex';
+                panel.style.height='220px'; 
                 isChatOpen=true; 
                 document.getElementById('chat-icon').classList.add('active'); 
             }
@@ -416,9 +466,9 @@
         function renderChatLine(type, username, text) {
             const msgDiv = document.createElement('div');
             msgDiv.className = 'chat-line';
-            if (type === 'system') msgDiv.innerHTML = `<span class="system-msg">★ ${text}</span>`;
+            if (type === 'system') msgDiv.innerHTML = `<span class="system-msg">*** ${text} ***</span>`;
             else {
-                msgDiv.innerHTML = `<span class="username">${username}</span> <span class="message-text">${text}</span>`;
+                msgDiv.innerHTML = `<span class="username">${username}:</span> <span class="message-text">${text}</span>`;
                 createChatBubble(username, text);
             }
             chatBox.appendChild(msgDiv); chatBox.scrollTop = chatBox.scrollHeight;
