@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Final</title>
+    <title>IMVU Clone - Classic</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         /* GLOBAL RESET */
@@ -69,10 +69,7 @@
         .card-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .card-details { flex-grow: 1; }
         .card-title { font-weight: bold; font-size: 14px; color: #fff; margin-bottom: 5px; }
-        
-        /* Removed cursor pointer from here so it's not clickable */
-        .card-rating { margin-top: 10px; color: #ffd700; font-size: 16px; cursor: default; }
-        
+        .card-rating { margin-top: 10px; color: #ffd700; font-size: 16px; cursor: default; } /* Read only cursor */
         .close-card { margin-left: auto; cursor: pointer; font-weight: bold; font-size: 14px; color: #aaa; }
         
         .card-body { padding: 10px; background: #f9f9f9; }
@@ -92,7 +89,6 @@
         #room-view { position: relative; width: 100%; height: 100%; }
         #canvas-container { position: absolute; top:0; left:0; width:100%; height:100%; z-index:1; background:#000; }
         
-        /* Scene Header: Stars ARE clickable here */
         #scene-header { position: absolute; top: 10px; left: 10px; z-index: 150; display: flex; gap: 5px; }
         #scene-rating-box { background: rgba(0,0,0,0.6); padding: 5px; border: 1px solid #555; color: white; font-size: 10px; display: flex; align-items: center; }
         .mini-stars { color: #555; cursor: pointer; margin-left: 5px; font-size: 14px; }
@@ -207,7 +203,7 @@
                     <div class="card-title">Robot Lounge ... *Chill*</div>
                     <div style="color:#ffd700;">by Admin</div>
                     <div style="margin-top:2px;">Language: English</div>
-                    <!-- REMOVED onclick here -->
+                    <!-- No onclick here, it is read only on card -->
                     <div class="card-rating">
                         Room Rating: <span id="card-stars">☆☆☆☆☆</span> <span style="font-size:10px; color:#fff;" id="rating-text">(0/5)</span>
                     </div>
@@ -230,7 +226,7 @@
     <!-- 6. 3D GAME ROOM -->
     <div id="room-view">
         <div id="scene-header">
-            <!-- RATING ONLY WORKS HERE -->
+            <!-- RATING WORKS HERE -->
             <div id="scene-rating-box">Rate: <span id="scene-stars" class="mini-stars" onclick="rateRoom(event)">☆☆☆☆☆</span></div>
             <div id="info-btn" onclick="openRoomCard(true)">i</div>
         </div>
@@ -243,7 +239,7 @@
         
         <button id="exit-btn" onclick="exitRoom()">✖ EXIT ROOM</button>
         
-        <!-- CLASSIC CHATBOX -->
+        <!-- CHATBOX -->
         <div id="ui-layer">
             <div id="imvu-chat-panel">
                 <div id="toolbar">
@@ -350,7 +346,7 @@
 
         function rateRoom(e) {
             e.stopPropagation(); 
-            // Only toggle rating when clicked in scene
+            // Clickable logic only called from Scene overlay
             if(currentRating < 5) currentRating++; else currentRating = 0;
             localStorage.setItem('room_rating', currentRating);
             updateStarsDisplay(currentRating);
@@ -359,11 +355,11 @@
         function updateStarsDisplay(rating) {
             const stars = "★★★★★".substring(0, rating) + "☆☆☆☆☆".substring(0, 5 - rating);
             
-            // Updates card (read-only)
+            // Updates card (Read Only visually, no click handler on the span)
             document.getElementById('card-stars').innerText = stars;
             document.getElementById('rating-text').innerText = `(${rating}/5)`;
             
-            // Updates scene (clickable)
+            // Updates scene
             document.getElementById('scene-stars').innerText = stars;
             document.getElementById('scene-stars').className = rating > 0 ? "mini-stars active" : "mini-stars";
             
