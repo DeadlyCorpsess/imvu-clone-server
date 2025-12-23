@@ -94,7 +94,7 @@
         .dashboard-btn { width: 160px; height: 140px; background: linear-gradient(145deg, #222, #151515); border: 1px solid #333; border-radius: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: all 0.3s; box-shadow: 0 5px 15px rgba(0,0,0,0.3); }
         .dashboard-btn:hover { border-color: #00e5ff; transform: translateY(-5px); box-shadow: 0 10px 25px rgba(0, 229, 255, 0.15); }
 
-        /* --- BLUE CHAT ANIMATIONS (SMOOTH SLIDE) --- */
+        /* --- BLUE CHAT CSS (STANDARD ANIMATION) --- */
         #chat-interface-wrapper { display: block; padding: 10px 20px; }
         
         #chat-history { 
@@ -110,7 +110,7 @@
         #chat-history::-webkit-scrollbar { width: 6px; }
         #chat-history::-webkit-scrollbar-thumb { background-color: #00e5ff; border-radius: 3px; }
 
-        /* Smooth Slide-In Animation (Replaces Bouncy) */
+        /* Smooth Slide-In Animation (Standard) */
         @keyframes smoothSlideIn {
             0% { opacity: 0; transform: translateX(-15px); }
             100% { opacity: 1; transform: translateX(0); }
@@ -316,7 +316,7 @@
             const isUserAtBottom = (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) < tolerance;
             const msgDiv = document.createElement('div');
             
-            // Standard smooth entry for everything
+            // Standard smooth entry for everything, NO spam logic
             msgDiv.className = `chat-line`;
             
             if (type === 'system') msgDiv.innerHTML = `<span class="system-msg">★ ${text}</span>`;
