@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Fixed Robots & Yellow Chat</title>
+    <title>IMVU Clone - Instant Robots</title>
     <!-- Socket.io -->
     <script src="/socket.io/socket.io.js"></script>
     <!-- Three.js Libraries -->
@@ -354,33 +354,42 @@
         socket.on('remove player',(id)=>{ delete roomPlayers[id]; if(avatars[id]){scene.remove(avatars[id].mesh);delete avatars[id];} if(document.getElementById('room-card-overlay').style.display==='flex' && isInRoom)openRoomCard(true); });
         socket.on('player moved',(d)=>{ if(avatars[d.id]){ const av=avatars[d.id]; av.target.set(d.x,0,d.z); av.mesh.lookAt(d.x,0,d.z); if(av.action!=='Walking'){ if(av.actions['Idle'])av.actions['Idle'].fadeOut(0.2); if(av.actions['Sitting'])av.actions['Sitting'].fadeOut(0.2); if(av.actions['Walking'])av.actions['Walking'].reset().fadeIn(0.2).play(); av.action='Walking'; } } });
 
-        // ROBOT LOADING (Official URL + Fallback)
+        // FORCE SPAWN + FALLBACK
         function spawnAvatar(id,d){ 
             if(avatars[id])return; 
-            loader.load('https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb', 
+            
+            // 1. Create Placeholder (Green Wireframe Box)
+            const boxGeo = new THREE.BoxGeometry(0.5, 1.5, 0.5);
+            const boxMat = new THREE.MeshBasicMaterial({color: 0x00ff00, wireframe: true});
+            const placeholder = new THREE.Mesh(boxGeo, boxMat);
+            placeholder.position.set(d.x, 0.75, d.z);
+            scene.add(placeholder);
+            
+            // 2. Load Model
+            loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb', 
                 (gltf)=>{ 
+                    scene.remove(placeholder); // Remove placeholder on success
+                    
                     const m=gltf.scene; m.scale.set(0.4,0.4,0.4); m.position.set(d.x,0,d.z); 
                     m.traverse((o)=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}}); 
                     m.userData={username:d.username,socketId:id}; 
                     scene.add(m); 
+                    
                     const mixer=new THREE.AnimationMixer(m); const actions={}; 
                     ['Idle','Walking','Sitting'].forEach(n=>{const c=THREE.AnimationClip.findByName(gltf.animations,n);if(c)actions[n]=mixer.clipAction(c);}); 
                     if(actions['Idle'])actions['Idle'].play(); 
+                    
                     avatars[id]={mesh:m,mixer,actions,action:'Idle',target:new THREE.Vector3(d.x,0,d.z)}; 
-                    if(id===mySocketId)renderChatLine('system',null,"You have entered the room."); else renderChatLine('system',null,`${d.username} has joined.`); 
+                    
+                    if(id===mySocketId) renderChatLine('system',null,"You have entered the room."); 
+                    else renderChatLine('system',null,`${d.username} has joined.`); 
                 },
-                undefined, 
-                (err) => {
-                    // FALLBACK if robot fails
-                    console.error("Robot load failed, using fallback", err);
-                    const geo = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16);
-                    const mat = new THREE.MeshStandardMaterial({color: 0x00ff00});
-                    const mesh = new THREE.Mesh(geo, mat);
-                    mesh.position.set(d.x, 0.75, d.z);
-                    mesh.userData = {username:d.username, socketId:id};
-                    scene.add(mesh);
-                    avatars[id] = {mesh: mesh, mixer: null, actions: {}, action: 'Idle', target: new THREE.Vector3(d.x,0,d.z)};
-                    if(id===mySocketId)renderChatLine('system',null,"You have entered (Fallback mode).");
+                undefined,
+                (error) => {
+                    // On Error, keep placeholder but make it solid red so we know it failed
+                    console.log("Model failed to load, using placeholder");
+                    placeholder.material = new THREE.MeshStandardMaterial({color: 0xff0000});
+                    avatars[id] = {mesh: placeholder, mixer: null, actions: {}, action: 'Idle', target: new THREE.Vector3(d.x,0,d.z)};
                 }
             ); 
         }
