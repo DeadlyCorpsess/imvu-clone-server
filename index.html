@@ -2,49 +2,68 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Classic Idle Fix</title>
+    <title>IMVU Clone - Robot World</title>
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <style>
-        body { margin: 0; overflow: hidden; background-color: #050510; font-family: 'Segoe UI', Arial, sans-serif; }
+        /* --- PREMIUM THEME --- */
+        body { margin: 0; overflow: hidden; background-color: #050510; font-family: 'Segoe UI', Arial, sans-serif; color: white; }
+        
         #ui-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
         
-        /* SOLID BLACK CHAT HISTORY */
+        /* 100% SOLID BLACK CHAT */
         #chat-history { 
             height: 220px; overflow-y: auto; padding: 15px 25px; 
             background: #000000 !important;
-            pointer-events: auto; font-size: 14px; color: white;
+            pointer-events: auto; font-size: 14px; 
             border-top: 2px solid #111;
         }
         .chat-line { margin-bottom: 8px; }
         .username { color: #f5d300; font-weight: bold; margin-right: 8px; }
 
-        /* YELLOW UI BAR */
+        /* YELLOW BOTTOM BAR */
         #imvu-bottom-bar {
             background: #000; border-top: 1px solid #f5d300;
             padding: 12px 0; pointer-events: auto;
         }
         #input-row { display: flex; align-items: center; padding: 0 15px; gap: 10px; }
-        #msgInput { flex-grow: 1; background: #080808; border: 1px solid #333; color: #fff; padding: 10px; outline: none; }
-        #send-btn { background: #f5d300; color: #000; border: none; font-weight: bold; padding: 10px 25px; cursor: pointer; }
+        #msgInput { 
+            flex-grow: 1; background: #080808; border: 1px solid #333; 
+            color: #fff; padding: 10px 15px; font-size: 14px; outline: none; 
+        }
+        #send-btn { background: #f5d300; color: #000; border: none; font-weight: bold; padding: 10px 30px; cursor: pointer; }
 
-        #icon-tray { display: flex; justify-content: center; gap: 30px; margin-top: 10px; }
-        .tray-icon { width: 20px; height: 20px; cursor: pointer; opacity: 0.4; filter: invert(1); }
-        .tray-icon.active { filter: none; opacity: 1; background: #f5d300; border-radius: 50%; padding: 5px; }
+        #icon-tray { display: flex; justify-content: center; gap: 30px; margin-top: 12px; }
+        .tray-icon { width: 20px; height: 20px; cursor: pointer; opacity: 0.4; filter: invert(1); transition: 0.2s; }
+        .tray-icon.active { filter: none; opacity: 1; background: #f5d300; border-radius: 50%; padding: 6px; }
+
+        /* AUTH BOX */
+        .auth-container { position: absolute; inset: 0; background: radial-gradient(circle, #001a33, #000); display: flex; align-items: center; justify-content: center; z-index: 200; }
+        .auth-box { width: 320px; padding: 40px; background: rgba(0,0,0,0.9); border: 1px solid #00e5ff; border-radius: 12px; text-align: center; }
+        .auth-input { width: 90%; padding: 12px; margin-bottom: 20px; background: #000; border: 1px solid #333; color: white; text-align: center; border-radius: 4px; }
+        .auth-btn { width: 100%; padding: 14px; background: #00e5ff; border: none; font-weight: bold; cursor: pointer; color: #000; border-radius: 4px; }
     </style>
 </head>
 <body>
 
-    <div id="room-view">
+    <div id="login-view" class="auth-container">
+        <div class="auth-box">
+            <h1 style="color:#00e5ff; font-size: 18px; letter-spacing: 2px; margin-bottom: 20px;">ROBOT WORLD</h1>
+            <input type="text" id="login-user" class="auth-input" placeholder="Username">
+            <button class="auth-btn" onclick="enterRoom()">JOIN THE GRID</button>
+        </div>
+    </div>
+
+    <div id="room-view" style="display:none;">
         <div id="canvas-container" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
         <div id="ui-layer">
             <div id="chat-history"></div>
             <div id="imvu-bottom-bar">
                 <div id="input-row">
-                    <input type="text" id="msgInput" placeholder="Type here..." autocomplete="off">
+                    <input type="text" id="msgInput" placeholder="Type a message..." autocomplete="off">
                     <button id="send-btn" onclick="sendMsg()">Send</button>
                 </div>
                 <div id="icon-tray">
@@ -60,129 +79,154 @@
     </div>
 
     <script>
+        const socket = io();
+        let currentUser = "Guest";
+        const avatars = {};
+
+        function enterRoom() {
+            currentUser = document.getElementById('login-user').value || "Guest";
+            document.getElementById('login-view').style.display = 'none';
+            document.getElementById('room-view').style.display = 'block';
+            socket.emit('join game', currentUser);
+            animate();
+        }
+
+        // --- 3D SCENE SETUP ---
         const scene = new THREE.Scene();
         scene.background = new THREE.Color(0x020205);
         const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 2, 5);
+        camera.position.set(0, 2.5, 6);
 
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         renderer.outputEncoding = THREE.sRGBEncoding;
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        // Robot World Lighting
-        scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-        const sun = new THREE.DirectionalLight(0xffffff, 1);
+        // Controls (Restored Camera Functionality)
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+        controls.minDistance = 2;
+        controls.maxDistance = 20;
+        controls.target.set(0, 1.5, 0);
+
+        scene.add(new THREE.AmbientLight(0xffffff, 0.8));
+        const sun = new THREE.DirectionalLight(0xffffff, 1.0);
         sun.position.set(5, 10, 5);
         scene.add(sun);
         scene.add(new THREE.GridHelper(50, 50, 0x00e5ff, 0x0a0a0a));
 
-        const avatars = {};
         const loader = new THREE.GLTFLoader();
 
-        function spawnAvatar(id) {
+        function spawnAvatar(id, data) {
+            if(avatars[id]) return;
+
             loader.load('models/male_avatar.glb', (gltf) => {
                 const model = gltf.scene;
-                model.scale.set(0.01, 0.01, 0.01);
-                
+                model.scale.set(0.01, 0.01, 0.01); 
+                model.position.set(data.x || 0, 0, data.z || 0);
+
                 const bones = { armsL: [], armsR: [], eyes: [] };
-                model.traverse(n => {
-                    if (n.isBone) {
-                        const name = n.name.toLowerCase();
-                        if (name.includes('head')) bones.head = n;
-                        if (name.includes('eye')) bones.eyes.push(n);
-                        if (name.includes('hips') || name.includes('pelvis')) bones.hips = n;
-                        if (name.includes('spine')) bones.spine = n;
-                        
-                        // Arm grouping
+                model.traverse(node => {
+                    if (node.isBone) {
+                        const name = node.name.toLowerCase();
+                        if (name.includes('head')) bones.head = node;
+                        if (name.includes('eye')) bones.eyes.push(node);
+                        if (name.includes('hips') || name.includes('pelvis')) bones.hips = node;
+                        if (name.includes('spine')) bones.spine = node;
                         if (name.includes('arm') || name.includes('shoulder')) {
-                            if (name.includes('l')) bones.armsL.push(n);
-                            else bones.armsR.push(n);
+                            if (name.includes('l')) bones.armsL.push(node);
+                            else bones.armsR.push(node);
                         }
                     }
                 });
 
                 scene.add(model);
-                avatars[id] = { mesh: model, bones, seed: Math.random() * 50 };
+                avatars[id] = { mesh: model, bones: bones, seed: Math.random() * 50 };
             });
         }
 
-        function updateAnimation(avatar, time) {
-            if (!avatar.bones) return;
+        // --- IMVU PROCEDURAL ENGINE ---
+        function updateAvatar(avatar, time) {
+            if (!avatar.mesh || !avatar.bones) return;
             const b = avatar.bones;
             const t = time + avatar.seed;
 
-            // 1. THE "IDLE POSE" (Kill T-Pose)
-            // Rotate shoulders down + bend elbows slightly for a natural look
+            // 1. T-POSE FIX (Arms Down)
             b.armsL.forEach((bone, i) => {
-                bone.rotation.z = 1.3;  // Drops arm down
-                bone.rotation.y = 0.2;  // Rotates arm slightly forward
-                if (i > 0) bone.rotation.z = 0.2; // Bend elbows/wrists slightly
+                bone.rotation.z = 1.35; // Shoulder drop
+                bone.rotation.y = 0.2;  // Arm slightly forward
+                if(i > 0) bone.rotation.z = 0.15; // Subtle elbow bend
             });
             b.armsR.forEach((bone, i) => {
-                bone.rotation.z = -1.3;
+                bone.rotation.z = -1.35;
                 bone.rotation.y = -0.2;
-                if (i > 0) bone.rotation.z = -0.2;
+                if(i > 0) bone.rotation.z = -0.15;
             });
 
-            // 2. THE IMVU WEIGHT SHIFT (Swaying Hips)
+            // 2. WEIGHT SHIFT (The Sway from your GIF)
             if (b.hips) {
-                // Side-to-side sway (Z) and subtle front-to-back (X)
                 b.hips.rotation.z = Math.sin(t * 0.8) * 0.12; 
-                b.hips.position.x = Math.sin(t * 0.8) * 4.0; // Moving the root slightly
-                b.hips.rotation.x = Math.cos(t * 0.4) * 0.05;
+                b.hips.position.x = Math.sin(t * 0.8) * 4.0; 
             }
-
-            // 3. SPINE COUNTER-SWAY
             if (b.spine) {
-                b.spine.rotation.z = -Math.sin(t * 0.8) * 0.08; // Counters the hips
-                b.spine.rotation.x = (Math.sin(t * 1.5) * 0.03) + 0.1; // Breathing
+                b.spine.rotation.z = -Math.sin(t * 0.8) * 0.08; 
+                b.spine.rotation.x = (Math.sin(t * 1.5) * 0.04) + 0.05; // Breathing
             }
 
-            // 4. HEAD LOOKING AROUND
+            // 3. HEAD & EYES
             if (b.head) {
-                // Main rotation + "micro-movements"
-                b.head.rotation.y = Math.sin(t * 0.3) * 0.4 + Math.sin(t * 2) * 0.05;
-                b.head.rotation.x = Math.cos(t * 0.5) * 0.1;
+                b.head.rotation.y = Math.sin(t * 0.4) * 0.35 + Math.sin(t * 2.2) * 0.04;
+                b.head.rotation.x = Math.cos(t * 0.35) * 0.1;
             }
-
-            // 5. EYE FLICKER
             b.eyes.forEach(eye => {
-                eye.rotation.y = Math.sin(t * 0.2) * 0.1 + (Math.random() * 0.02);
+                eye.rotation.y = Math.sin(t * 0.2) * 0.1;
                 eye.rotation.x = Math.sin(t * 0.5) * 0.05;
             });
 
-            // 6. GENTLE HOVER/BOB
-            avatar.mesh.position.y = Math.sin(t * 1.2) * 0.05;
+            // 4. HOVER
+            avatar.mesh.position.y = Math.sin(t * 1.2) * 0.06;
         }
-
-        // Spawn local test avatar immediately
-        spawnAvatar('local');
 
         function animate() {
             requestAnimationFrame(animate);
             const time = performance.now() / 1000;
-            for (let id in avatars) updateAnimation(avatars[id], time);
+            for(let id in avatars) {
+                updateAvatar(avatars[id], time);
+            }
+            controls.update(); // CRITICAL: Updates camera movement
             renderer.render(scene, camera);
         }
-        animate();
 
+        // --- CHAT LOGIC ---
         function sendMsg() {
             const val = document.getElementById('msgInput').value;
-            if(!val) return;
+            if(val) {
+                socket.emit('chat message', { username: currentUser, message: val });
+                document.getElementById('msgInput').value = '';
+            }
+        }
+
+        socket.on('chat message', (data) => {
             const hist = document.getElementById('chat-history');
             const line = document.createElement('div');
             line.className = 'chat-line';
-            line.innerHTML = `<span class="username">You:</span> <span style="color:white;">${val}</span>`;
+            line.innerHTML = `<span class="username">${data.username}:</span> <span>${data.message}</span>`;
             hist.appendChild(line);
             hist.scrollTop = hist.scrollHeight;
-            document.getElementById('msgInput').value = '';
-        }
+        });
+
+        socket.on('init players', (p) => { for(let id in p) spawnAvatar(id, p[id]); });
+        socket.on('new player', (p) => spawnAvatar(p.id, p));
 
         window.addEventListener('resize', () => {
             camera.aspect = window.innerWidth / window.innerHeight;
             camera.updateProjectionMatrix();
             renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        document.getElementById('msgInput').addEventListener("keydown", (e) => {
+            if (e.key === "Enter") sendMsg();
         });
     </script>
 </body>
