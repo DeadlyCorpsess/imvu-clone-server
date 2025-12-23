@@ -2,55 +2,56 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Anti-Lag</title>
+    <title>IMVU Clone - Fixed & AuthentiChat</title>
+    <!-- Socket.io -->
     <script src="/socket.io/socket.io.js"></script>
+    <!-- Three.js Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <style>
-        /* --- GLOBAL --- */
-        body { margin: 0; overflow: hidden; background-color: #111; font-family: 'Verdana', sans-serif; color: white; }
+        /* --- GLOBAL RESET --- */
+        html, body { width: 100%; height: 100%; margin: 0; padding: 0; overflow: hidden; background-color: #000; font-family: 'Verdana', sans-serif; color: white; }
         button { cursor: pointer; } input { outline: none; } a { text-decoration: none; color: #ffd700; }
 
-        /* --- VIEWS --- */
-        #signup-view, #dashboard-view, #room-list-view, #room-view, #room-card-overlay { display: none; }
-        #login-view { display: flex; }
+        /* --- VIEW MANAGEMENT --- */
+        .view-section { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; z-index: 10; }
+        #login-view { display: flex; z-index: 50; } 
 
         /* --- AUTH --- */
-        .auth-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #1a1a1a, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; }
+        .auth-container { background: linear-gradient(135deg, #1a1a1a, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; }
         .auth-box { width: 300px; padding: 30px; background: rgba(255, 255, 255, 0.1); border: 1px solid #444; border-radius: 8px; text-align: center; }
-        .auth-input { width: 90%; padding: 10px; margin-bottom: 15px; background: #222; border: 1px solid #555; color: white; border-radius: 4px; font-size: 14px; }
-        .auth-btn { width: 100%; padding: 10px; background: linear-gradient(to bottom, #ffeb3b, #fbc02d); border: none; font-weight: bold; color: black; border-radius: 4px; font-size: 16px; }
+        .auth-input { width: 90%; padding: 10px; margin-bottom: 15px; background: #222; border: 1px solid #555; color: white; border-radius: 4px; }
+        .auth-btn { width: 100%; padding: 10px; background: linear-gradient(to bottom, #ffeb3b, #fbc02d); border: none; font-weight: bold; color: black; border-radius: 4px; cursor: pointer; }
         .link-text { margin-top: 20px; font-size: 12px; color: #aaa; cursor: pointer; text-decoration: underline; }
         .error-msg { color: #ff5555; font-size: 12px; margin-bottom: 10px; display: none; }
 
         /* --- DASHBOARD --- */
-        #dashboard-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #222; z-index: 50; }
+        #dashboard-view { background: #222; }
         .imvu-navbar { width: 100%; height: 50px; background: #000; border-bottom: 3px solid #ffd700; display: flex; align-items: center; padding: 0 20px; box-sizing: border-box; }
         .nav-logo { font-size: 24px; font-weight: bold; color: white; margin-right: 30px; }
         .nav-item { color: #ccc; margin-right: 20px; font-size: 14px; cursor: pointer; }
-        .dash-content { display: flex; justify-content: center; align-items: center; height: calc(100% - 50px); background: url('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/brick_diffuse.jpg') center/cover; }
-        .big-btn { width: 200px; height: 150px; background: linear-gradient(to bottom, #444, #222); border: 2px solid #555; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: 0.2s; }
-        .big-btn:hover { transform: scale(1.05); border-color: #ffd700; }
+        .dash-content { height: calc(100% - 50px); display: flex; justify-content: center; align-items: center; background: url('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/brick_diffuse.jpg') center/cover; }
+        .big-btn { width: 200px; height: 150px; background: linear-gradient(to bottom, #444, #222); border: 2px solid #555; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 5px 15px rgba(0,0,0,0.5); }
+        .big-btn:hover { border-color: #ffd700; transform: scale(1.05); transition: 0.2s; }
         .big-icon { font-size: 40px; margin-bottom: 10px; }
-        .big-text { color: white; font-weight: bold; font-size: 16px; }
 
         /* --- ROOM BROWSER --- */
-        #room-list-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #333; z-index: 60; display: none; flex-direction: column; }
-        .browser-header { height: 40px; background: linear-gradient(to bottom, #555, #333); border-bottom: 1px solid #000; display: flex; align-items: flex-end; padding-left: 10px; }
-        .browser-tab { padding: 8px 20px; background: #ffd700; color: black; font-weight: bold; font-size: 12px; border-radius: 5px 5px 0 0; margin-right: 5px; cursor: pointer; }
-        .browser-body { flex-grow: 1; display: flex; background: #222; }
-        .sidebar { width: 220px; background: #1a1a1a; border-right: 1px solid #000; padding: 10px; box-sizing: border-box; }
+        #room-list-view { background: #333; display: none; flex-direction: column; }
+        .browser-header { height: 40px; background: linear-gradient(to bottom, #555, #333); display: flex; align-items: flex-end; padding-left: 10px; border-bottom: 1px solid #000; }
+        .browser-tab { padding: 8px 20px; background: #ffd700; color: black; font-weight: bold; font-size: 12px; border-radius: 5px 5px 0 0; margin-right: 5px; }
+        .browser-body { flex-grow: 1; display: flex; background: #222; overflow: hidden; }
+        .sidebar { width: 220px; background: #1a1a1a; border-right: 1px solid #000; padding: 10px; }
         .rooms-grid { flex-grow: 1; padding: 15px; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 10px; overflow-y: auto; }
-        .room-listing { width: 350px; height: 120px; background: #111; border: 1px solid #444; display: flex; position: relative; cursor: pointer; transition: 0.2s; }
+        .room-listing { width: 350px; height: 120px; background: #111; border: 1px solid #444; display: flex; cursor: pointer; }
         .room-listing:hover { border-color: #ffd700; }
-        .listing-thumb { width: 140px; height: 100%; background: #000; overflow: hidden; }
+        .listing-thumb { width: 140px; background: #000; }
         .listing-thumb img { width: 100%; height: 100%; object-fit: cover; }
-        .listing-info { padding: 8px; }
+        .listing-info { padding: 10px; }
 
-        /* --- POPUP ROOM CARD --- */
-        #room-card-overlay { position: absolute; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.7); z-index: 500; display: none; align-items: center; justify-content: center; }
+        /* --- ROOM CARD --- */
+        #room-card-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 999; display: none; align-items: center; justify-content: center; }
         .imvu-room-card { width: 600px; background: #f0f0f0; border: 1px solid #000; box-shadow: 0 0 20px rgba(0,0,0,0.8); color: #000; font-family: 'Verdana', sans-serif; font-size: 11px; display: flex; flex-direction: column; }
         .card-header { background: linear-gradient(to bottom, #444, #222); padding: 5px; color: white; display: flex; }
         .card-thumb { width: 180px; height: 110px; background: #000; border: 1px solid #666; margin-right: 10px; }
@@ -67,9 +68,9 @@
         .card-footer { background: #eee; padding: 8px; border-top: 1px solid #ccc; display: flex; align-items: center; justify-content: space-between; }
         .go-btn-large { background: linear-gradient(to bottom, #ffd700, #ffb300); border: 1px solid #886600; color: black; font-weight: bold; padding: 5px 30px; font-size: 14px; cursor: pointer; box-shadow: 0 2px 2px rgba(0,0,0,0.2); }
 
-        /* --- 3D ROOM UI --- */
-        #room-view { position: relative; width: 100%; height: 100%; }
-        #canvas-container { position: absolute; top:0; left:0; width:100%; height:100%; z-index:1; background:#000; }
+        /* --- 3D SCENE --- */
+        #room-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; display: none; }
+        #canvas-container { position: absolute; top:0; left:0; width:100%; height:100%; z-index: 1; background: #000; }
         
         #scene-header { position: absolute; top: 10px; left: 10px; z-index: 150; display: flex; gap: 5px; }
         #scene-rating-box { background: rgba(0,0,0,0.6); padding: 5px; border: 1px solid #555; color: white; font-size: 10px; display: flex; align-items: center; }
@@ -79,7 +80,11 @@
         #exit-btn { position: absolute; top: 15px; right: 15px; background: #d32f2f; color: white; border: 1px solid #fff; padding: 5px 10px; font-weight: bold; font-size: 12px; z-index: 200; cursor: pointer; }
 
         /* --- AUTHENTIC CHATBOX STYLE (YELLOW/BLACK) --- */
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
+        #ui-layer { 
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 300; pointer-events: none; 
+            display: flex; flex-direction: column; justify-content: flex-end; 
+        }
         
         #imvu-chat-panel { 
             pointer-events: auto; width: 100%; 
@@ -110,7 +115,7 @@
         #input-row { 
             height: 35px; background: #1a1a1a; 
             display: flex; align-items: center; padding: 0 5px; 
-            flex-shrink: 0; 
+            flex-shrink: 0; border-top: 1px solid #333;
         }
         #msgInput { flex-grow: 1; background: #000; border: 1px solid #444; color: white; padding: 4px; font-size: 11px; height: 18px; margin-right: 5px; }
         #send-btn { background: linear-gradient(to bottom, #ffeb3b, #fbc02d); color: black; border: 1px solid #c49000; font-weight: bold; font-size: 11px; padding: 2px 15px; cursor: pointer; height: 26px; }
@@ -128,7 +133,7 @@
         .icon.active { filter: grayscale(0%); color: #ffd700; text-shadow: 0 0 5px #ffd700; }
 
         /* 4. Bubbles (Throttled) */
-        .chat-bubble { position: absolute; background: white; color: black; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; box-shadow: 2px 2px 0px rgba(0,0,0,0.3); border: 1px solid #000; pointer-events: none; white-space: nowrap; z-index: 5; animation: floatUp 2.5s forwards; transform-origin: center bottom; }
+        .chat-bubble { position: absolute; background: white; color: black; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; box-shadow: 2px 2px 0px rgba(0,0,0,0.3); border: 1px solid #000; pointer-events: none; white-space: nowrap; z-index: 120; animation: floatUp 2.5s forwards; transform-origin: center bottom; }
         @keyframes floatUp { 0% { transform: translateY(0) scale(0.8); opacity: 0; } 10% { transform: translateY(-10px) scale(1.05); opacity: 1; } 90% { opacity: 1; } 100% { transform: translateY(-80px) scale(0.9); opacity: 0; } }
         
         #avatar-menu { display: none; position: absolute; width: 150px; background-color: rgba(0, 0, 0, 0.9); border: 1px solid #555; font-size: 12px; z-index: 150; pointer-events: auto; color: #ddd; }
@@ -137,8 +142,8 @@
 </head>
 <body>
 
-    <!-- AUTH VIEWS -->
-    <div id="login-view" class="auth-container">
+    <!-- AUTH SCREENS -->
+    <div id="login-view" class="view-section auth-container">
         <div class="auth-box">
             <h2 style="color:#ffd700; margin-bottom:10px;">IMVU Classic</h2>
             <div id="login-error" class="error-msg">Invalid credentials</div>
@@ -148,7 +153,7 @@
             <div class="link-text" onclick="showSignup()">Sign Up</div>
         </div>
     </div>
-    <div id="signup-view" class="auth-container">
+    <div id="signup-view" class="view-section auth-container">
         <div class="auth-box">
             <h2 style="color:#ffd700; margin-bottom:10px;">Register</h2>
             <div id="signup-error" class="error-msg">Taken</div>
@@ -160,7 +165,7 @@
     </div>
 
     <!-- DASHBOARD -->
-    <div id="dashboard-view">
+    <div id="dashboard-view" class="view-section">
         <div class="imvu-navbar"><div class="nav-logo">IMVU</div><div class="nav-item">Home</div></div>
         <div class="dash-content">
             <div class="big-btn" onclick="openRoomBrowser()"><div class="big-icon">💬</div><div class="big-text">Chat Rooms</div></div>
@@ -168,7 +173,7 @@
     </div>
 
     <!-- ROOM BROWSER -->
-    <div id="room-list-view">
+    <div id="room-list-view" class="view-section">
         <div class="browser-header"><div class="browser-tab">Search</div></div>
         <div class="browser-body">
             <div class="sidebar"><div class="sidebar-title">Room Type</div><select class="filter-select"><option>All</option></select></div>
@@ -209,7 +214,7 @@
     </div>
 
     <!-- 3D ROOM -->
-    <div id="room-view">
+    <div id="room-view" class="view-section">
         <div id="scene-header">
             <div id="scene-rating-box">Rate: <span id="scene-stars" class="mini-stars" onclick="rateRoom(event)">☆☆☆☆☆</span></div>
             <div id="info-btn" onclick="openRoomCard(true)">i</div>
@@ -246,14 +251,15 @@
         const socket = io();
         let currentUser="Guest", mySocketId=null, roomPlayers={}, isInRoom=false;
         let currentRating = parseInt(localStorage.getItem('room_rating')) || 0;
-        let lastBubbleTime = 0; // Throttle for bubbles
+        let lastBubbleTime = 0; 
 
         socket.on('connect', () => { mySocketId = socket.id; });
 
         // AUTH
         function getLocalUsers(){ return JSON.parse(localStorage.getItem('imvu_users')||'{}'); }
-        function showSignup(){ document.getElementById('login-view').style.display='none'; document.getElementById('signup-view').style.display='flex'; }
-        function showLogin(){ document.getElementById('signup-view').style.display='none'; document.getElementById('login-view').style.display='flex'; }
+        function switchView(id){ document.querySelectorAll('.view-section').forEach(el=>el.style.display='none'); document.getElementById(id).style.display='flex'; if(id==='dashboard-view'||id==='room-view')document.getElementById(id).style.display='block'; }
+        function showSignup(){ switchView('signup-view'); }
+        function showLogin(){ switchView('login-view'); }
         
         async function handleSignup(){
             const u=document.getElementById('signup-user').value.trim(), p=document.getElementById('signup-pass').value.trim();
@@ -262,12 +268,12 @@
         }
         async function handleLogin(){
             const u=document.getElementById('login-user').value.trim(), p=document.getElementById('login-pass').value.trim();
-            const users=getLocalUsers(); if(users[u]===p){ currentUser=u; document.getElementById('login-view').style.display='none'; document.getElementById('dashboard-view').style.display='block'; }
+            const users=getLocalUsers(); if(users[u]===p){ currentUser=u; switchView('dashboard-view'); }
             else{document.getElementById('login-error').style.display='block';}
         }
 
-        // NAVIGATION
-        function openRoomBrowser(){ document.getElementById('dashboard-view').style.display='none'; document.getElementById('room-list-view').style.display='flex'; updateStarsDisplay(currentRating); }
+        // ROOM LOGIC
+        function openRoomBrowser(){ switchView('room-list-view'); document.getElementById('room-list-view').style.display='flex'; updateStarsDisplay(currentRating); }
         function openRoomCard(fromInside){
             const tbody=document.getElementById('occupant-list'); tbody.innerHTML="";
             const meRow=`<tr style="background:#ffffcc;"><td><span style="font-size:12px;">🇺🇸</span> <u>${currentUser}</u></td><td>hidden</td><td>4,200 kb</td><td>(You)</td></tr>`;
@@ -279,8 +285,8 @@
         function rateRoom(e){ e.stopPropagation(); if(currentRating<5)currentRating++;else currentRating=0; localStorage.setItem('room_rating',currentRating); updateStarsDisplay(currentRating); }
         function updateStarsDisplay(r){ const s="★★★★★".substring(0,r)+"☆☆☆☆☆".substring(0,5-r); document.getElementById('card-stars').innerText=s; document.getElementById('rating-text').innerText=`(${r}/5)`; document.getElementById('scene-stars').innerText=s; document.getElementById('scene-stars').className=r>0?"mini-stars active":"mini-stars"; document.getElementById('listing-stars').innerText=s; }
         
-        function enterRoom(){ closeRoomCard(); isInRoom=true; document.getElementById('room-list-view').style.display='none'; document.getElementById('room-view').style.display='block'; onWindowResize(); socket.emit('join game',currentUser); }
-        function exitRoom(){ isInRoom=false; document.getElementById('room-view').style.display='none'; document.getElementById('room-list-view').style.display='flex'; }
+        function enterRoom(){ closeRoomCard(); isInRoom=true; switchView('room-view'); onWindowResize(); socket.emit('join game',currentUser); }
+        function exitRoom(){ isInRoom=false; switchView('room-list-view'); document.getElementById('room-list-view').style.display='flex'; }
 
         // CHAT & ANTI-LAG
         let isChatOpen=true;
@@ -318,9 +324,14 @@
         input.addEventListener("keydown",(e)=>{if(e.key==="Enter")sendMsg();});
 
         // 3D SCENE
-        const container=document.getElementById('canvas-container'); const scene=new THREE.Scene(); scene.background=new THREE.Color(0x000000); scene.fog=new THREE.Fog(0x000000,10,50);
+        const container=document.getElementById('canvas-container'); 
+        const scene=new THREE.Scene(); scene.background=new THREE.Color(0x000000); scene.fog=new THREE.Fog(0x000000,10,50);
         const camera=new THREE.PerspectiveCamera(50,window.innerWidth/window.innerHeight,0.1,100); camera.position.set(0,8,15);
-        const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setSize(window.innerWidth,window.innerHeight); renderer.shadowMap.enabled=true; container.appendChild(renderer.domElement);
+        const renderer=new THREE.WebGLRenderer({antialias:true}); renderer.setSize(window.innerWidth,window.innerHeight); renderer.shadowMap.enabled=true; 
+        
+        // Ensure only one canvas exists
+        if(container.hasChildNodes()) container.innerHTML = '';
+        container.appendChild(renderer.domElement);
         
         const hemiLight=new THREE.HemisphereLight(0xffffff,0x444444,0.6); hemiLight.position.set(0,20,0); scene.add(hemiLight);
         const dirLight=new THREE.DirectionalLight(0xffffff,0.8); dirLight.position.set(10,20,10); dirLight.castShadow=true; dirLight.shadow.mapSize.width=1024; dirLight.shadow.mapSize.height=1024; scene.add(dirLight);
@@ -342,7 +353,20 @@
         socket.on('remove player',(id)=>{ delete roomPlayers[id]; if(avatars[id]){scene.remove(avatars[id].mesh);delete avatars[id];} if(document.getElementById('room-card-overlay').style.display==='flex' && isInRoom)openRoomCard(true); });
         socket.on('player moved',(d)=>{ if(avatars[d.id]){ const av=avatars[d.id]; av.target.set(d.x,0,d.z); av.mesh.lookAt(d.x,0,d.z); if(av.action!=='Walking'){ if(av.actions['Idle'])av.actions['Idle'].fadeOut(0.2); if(av.actions['Sitting'])av.actions['Sitting'].fadeOut(0.2); if(av.actions['Walking'])av.actions['Walking'].reset().fadeIn(0.2).play(); av.action='Walking'; } } });
 
-        function spawnAvatar(id,d){ if(avatars[id])return; loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb',(gltf)=>{ const m=gltf.scene; m.scale.set(0.4,0.4,0.4); m.position.set(d.x,0,d.z); m.traverse((o)=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}}); m.userData={username:d.username,socketId:id}; scene.add(m); const mixer=new THREE.AnimationMixer(m); const actions={}; ['Idle','Walking','Sitting'].forEach(n=>{const c=THREE.AnimationClip.findByName(gltf.animations,n);if(c)actions[n]=mixer.clipAction(c);}); if(actions['Idle'])actions['Idle'].play(); avatars[id]={mesh:m,mixer,actions,action:'Idle',target:new THREE.Vector3(d.x,0,d.z)}; if(id===mySocketId)renderChatLine('system',null,"You have entered the room."); else renderChatLine('system',null,`${d.username} has joined.`); }); }
+        function spawnAvatar(id,d){ 
+            if(avatars[id])return; 
+            loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb',(gltf)=>{ 
+                const m=gltf.scene; m.scale.set(0.4,0.4,0.4); m.position.set(d.x,0,d.z); 
+                m.traverse((o)=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}}); 
+                m.userData={username:d.username,socketId:id}; 
+                scene.add(m); 
+                const mixer=new THREE.AnimationMixer(m); const actions={}; 
+                ['Idle','Walking','Sitting'].forEach(n=>{const c=THREE.AnimationClip.findByName(gltf.animations,n);if(c)actions[n]=mixer.clipAction(c);}); 
+                if(actions['Idle'])actions['Idle'].play(); 
+                avatars[id]={mesh:m,mixer,actions,action:'Idle',target:new THREE.Vector3(d.x,0,d.z)}; 
+                if(id===mySocketId)renderChatLine('system',null,"You have entered the room."); else renderChatLine('system',null,`${d.username} has joined.`); 
+            }); 
+        }
         
         function createChatBubble(u,t){ let s=null; for(let id in avatars)if(avatars[id].mesh.userData.username===u)s=avatars[id].mesh; if(!s)return; const p=s.position.clone().add(new THREE.Vector3(0,2,0)); p.project(camera); const x=(p.x*.5+.5)*window.innerWidth; const y=(-(p.y*.5)+.5)*window.innerHeight; const b=document.createElement('div'); b.className='chat-bubble'; b.innerText=t; b.style.left=x+'px'; b.style.top=y+'px'; document.getElementById('room-view').appendChild(b); setTimeout(()=>b.remove(),2500); }
 
