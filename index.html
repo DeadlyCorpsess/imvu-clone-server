@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Classic</title>
+    <title>IMVU Clone - Fixed Chat</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         /* GLOBAL RESET */
@@ -69,7 +69,7 @@
         .card-thumb img { width: 100%; height: 100%; object-fit: cover; }
         .card-details { flex-grow: 1; }
         .card-title { font-weight: bold; font-size: 14px; color: #fff; margin-bottom: 5px; }
-        .card-rating { margin-top: 10px; color: #ffd700; font-size: 16px; cursor: default; } /* Read only cursor */
+        .card-rating { margin-top: 10px; color: #ffd700; font-size: 16px; cursor: default; } /* Read only */
         .close-card { margin-left: auto; cursor: pointer; font-weight: bold; font-size: 14px; color: #aaa; }
         
         .card-body { padding: 10px; background: #f9f9f9; }
@@ -86,7 +86,7 @@
         .go-btn-large:hover { background: #ffeb3b; }
 
         /* --- 3D ROOM UI --- */
-        #room-view { position: relative; width: 100%; height: 100%; }
+        #room-view { position: relative; width: 100%; height: 100%; overflow: hidden; }
         #canvas-container { position: absolute; top:0; left:0; width:100%; height:100%; z-index:1; background:#000; }
         
         #scene-header { position: absolute; top: 10px; left: 10px; z-index: 150; display: flex; gap: 5px; }
@@ -97,22 +97,41 @@
         #info-btn { width: 26px; height: 26px; background: linear-gradient(to bottom, #fff, #ccc); border: 1px solid #999; border-radius: 50%; color: black; font-weight: bold; font-family: serif; font-size: 14px; font-style: italic; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
         #info-btn:hover { background: #fff; }
 
-        /* --- CHATBOX CSS (CLASSIC YELLOW) --- */
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
-        #imvu-chat-panel { pointer-events: auto; width: 100%; background-color: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column; border-top: 2px solid #333; position: absolute; bottom: 0; z-index: 200; height: 150px; transition: height 0.3s; }
-        #chat-interface-wrapper { display: block; padding: 5px; flex-grow: 1; display: flex; flex-direction: column; }
+        /* --- CHATBOX CSS (FIXED) --- */
+        #ui-layer { 
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%; 
+            z-index: 200; /* High Z-Index to show above canvas */
+            pointer-events: none; /* Let clicks pass through to 3D scene */
+            display: flex; flex-direction: column; justify-content: flex-end; /* Align chat to bottom */
+        }
+        
+        #imvu-chat-panel { 
+            pointer-events: auto; /* Enable clicks on the chat itself */
+            width: 100%; 
+            background-color: rgba(0, 0, 0, 0.85); 
+            display: flex; flex-direction: column; 
+            border-top: 2px solid #333; 
+            height: 150px; 
+            transition: height 0.3s; 
+            flex-shrink: 0; /* Prevent collapsing */
+        }
+        
+        #chat-interface-wrapper { display: flex; flex-direction: column; flex-grow: 1; padding: 5px; overflow: hidden; }
         #chat-history { flex-grow: 1; overflow-y: scroll; padding: 5px; font-size: 12px; line-height: 1.4; color: white; scrollbar-width: thin; scrollbar-color: #444 #111; }
         .chat-line { margin-bottom: 2px; font-family: 'Verdana', sans-serif; display: block; }
         .username { color: #8FBC8F; font-weight: bold; cursor: pointer; margin-right: 5px; }
         .message-text { color: #e0e0e0; }
         .system-msg { color: #ffd700; font-style: italic; font-weight: bold; font-size: 11px; } 
-        #input-row { display: flex; align-items: center; background: #111; border-top: 1px solid #333; padding: 2px; }
+        
+        #input-row { display: flex; align-items: center; background: #111; border-top: 1px solid #333; padding: 2px; flex-shrink: 0; }
         #msgInput { flex-grow: 1; background: #222; border: 1px solid #555; color: white; padding: 4px; font-size: 11px; height: 20px; }
         #send-btn { background: linear-gradient(to bottom, #ffeb3b, #fbc02d); color: black; border: 1px solid #c49000; font-weight: bold; font-size: 11px; padding: 3px 10px; margin-left: 5px; }
-        #toolbar { height: 25px; background-color: #000; display: flex; align-items: center; padding-left: 10px; border-bottom: 2px solid #b8860b; }
+        
+        #toolbar { height: 25px; background-color: #000; display: flex; align-items: center; padding-left: 10px; border-bottom: 2px solid #b8860b; flex-shrink: 0; }
         .icon { width: 35px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #888; cursor: pointer; user-select: none; }
         .icon.active { background: linear-gradient(to bottom, #ffd700, #ffb300); color: black; }
-        #exit-btn { pointer-events: auto; position: absolute; top: 15px; right: 15px; background: #d32f2f; color: white; border: 1px solid #fff; padding: 5px 10px; font-weight: bold; font-size: 12px; z-index: 200; }
+        
+        #exit-btn { pointer-events: auto; position: absolute; top: 15px; right: 15px; background: #d32f2f; color: white; border: 1px solid #fff; padding: 5px 10px; font-weight: bold; font-size: 12px; z-index: 300; }
 
         /* BUBBLES */
         .chat-bubble { position: absolute; background: white; color: black; padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: bold; box-shadow: 2px 2px 0px rgba(0,0,0,0.3); border: 1px solid #000; pointer-events: none; white-space: nowrap; z-index: 5; animation: floatUp 2.5s forwards; transform-origin: center bottom; }
@@ -129,7 +148,7 @@
 </head>
 <body>
 
-    <!-- 1. LOGIN SCREEN -->
+    <!-- LOGIN -->
     <div id="login-view" class="auth-container">
         <div class="auth-box">
             <div class="auth-title" style="font-size: 24px; color: #ffd700; font-weight: bold; margin-bottom: 20px;">IMVU Classic Login</div>
@@ -141,7 +160,7 @@
         </div>
     </div>
 
-    <!-- 2. SIGNUP SCREEN -->
+    <!-- SIGNUP -->
     <div id="signup-view" class="auth-container">
         <div class="auth-box">
             <div class="auth-title" style="font-size: 24px; color: #ffd700; font-weight: bold; margin-bottom: 20px;">Create Account</div>
@@ -153,7 +172,7 @@
         </div>
     </div>
 
-    <!-- 3. DASHBOARD -->
+    <!-- DASHBOARD -->
     <div id="dashboard-view">
         <div class="imvu-navbar">
             <div class="nav-logo">IMVU</div>
@@ -168,7 +187,7 @@
         </div>
     </div>
 
-    <!-- 4. ROOM BROWSER -->
+    <!-- ROOM BROWSER -->
     <div id="room-list-view">
         <div class="browser-header">
             <div class="browser-tab">Search</div>
@@ -194,7 +213,7 @@
         </div>
     </div>
 
-    <!-- 5. ROOM CARD POPUP -->
+    <!-- ROOM CARD POPUP -->
     <div id="room-card-overlay">
         <div class="imvu-room-card">
             <div class="card-header">
@@ -203,7 +222,7 @@
                     <div class="card-title">Robot Lounge ... *Chill*</div>
                     <div style="color:#ffd700;">by Admin</div>
                     <div style="margin-top:2px;">Language: English</div>
-                    <!-- No onclick here, it is read only on card -->
+                    <!-- Rating is READ ONLY here -->
                     <div class="card-rating">
                         Room Rating: <span id="card-stars">☆☆☆☆☆</span> <span style="font-size:10px; color:#fff;" id="rating-text">(0/5)</span>
                     </div>
@@ -223,10 +242,10 @@
         </div>
     </div>
 
-    <!-- 6. 3D GAME ROOM -->
+    <!-- 3D GAME ROOM -->
     <div id="room-view">
         <div id="scene-header">
-            <!-- RATING WORKS HERE -->
+            <!-- Rating IS CLICKABLE here -->
             <div id="scene-rating-box">Rate: <span id="scene-stars" class="mini-stars" onclick="rateRoom(event)">☆☆☆☆☆</span></div>
             <div id="info-btn" onclick="openRoomCard(true)">i</div>
         </div>
@@ -239,7 +258,7 @@
         
         <button id="exit-btn" onclick="exitRoom()">✖ EXIT ROOM</button>
         
-        <!-- CHATBOX -->
+        <!-- FIXED CHATBOX -->
         <div id="ui-layer">
             <div id="imvu-chat-panel">
                 <div id="toolbar">
@@ -346,7 +365,7 @@
 
         function rateRoom(e) {
             e.stopPropagation(); 
-            // Clickable logic only called from Scene overlay
+            // Only update rating if clicked inside the room
             if(currentRating < 5) currentRating++; else currentRating = 0;
             localStorage.setItem('room_rating', currentRating);
             updateStarsDisplay(currentRating);
@@ -354,15 +373,12 @@
 
         function updateStarsDisplay(rating) {
             const stars = "★★★★★".substring(0, rating) + "☆☆☆☆☆".substring(0, 5 - rating);
-            
-            // Updates card (Read Only visually, no click handler on the span)
+            // Updates card (read-only)
             document.getElementById('card-stars').innerText = stars;
             document.getElementById('rating-text').innerText = `(${rating}/5)`;
-            
             // Updates scene
             document.getElementById('scene-stars').innerText = stars;
             document.getElementById('scene-stars').className = rating > 0 ? "mini-stars active" : "mini-stars";
-            
             // Updates listing
             document.getElementById('listing-stars').innerText = stars;
         }
@@ -377,13 +393,12 @@
         }
 
         function exitRoom() { 
-            // Return to Chat Rooms List
             document.getElementById('room-view').style.display = 'none';
             document.getElementById('room-list-view').style.display = 'flex';
             isInRoom = false;
         }
 
-        // --- CHAT ---
+        // --- CHAT LOGIC ---
         const chatBox = document.getElementById('chat-history');
         const input = document.getElementById('msgInput');
         let isChatOpen = true;
