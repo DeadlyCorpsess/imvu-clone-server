@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>IMVU Clone - Multiplayer</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        /* GLOBAL RESET */
+        body { margin: 0; overflow: hidden; background-color: #111; font-family: 'Arial', sans-serif; color: white; }
+        button { cursor: pointer; } input { outline: none; }
+
+        /* UI OVERLAYS */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
+        #imvu-chat-panel { pointer-events: auto; width: 100%; background-color: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column; border-top: 2px solid #333; transition: height 0.3s; }
+        #exit-btn { pointer-events: auto; position: absolute; top: 10px; right: 10px; background: #d32f2f; color: white; border: 1px solid #fff; padding: 5px 10px; font-weight: bold; font-size: 12px; z-index: 200; }
+
+        /* --- BATTLE HUD --- */
+        #battle-hud {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            width: 450px; background: rgba(0,0,0,0.9); border: 2px solid #ffd700;
+            border-radius: 8px; padding: 10px; z-index: 200; pointer-events: auto;
+            text-align: center; display: none; 
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.3);
+        }
+        .hud-title { color: #ffd700; font-weight: bold; font-size: 14px; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px; }
+        .score-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-family: monospace; font-size: 14px; }
+        .score-box { width: 45%; background: #222; padding: 5px; border: 1px solid #444; border-radius: 4px; }
+        .score-val { font-size: 24px; font-weight: bold; color: #fff; }
+        .mps-val { font-size: 11px; color: #aaa; }
+        .control-row { margin-top: 10px; border-top: 1px solid #333; padding-top: 5px; color: #888; font-size: 11px; }
+
+        /* --- 3D CHAT BUBBLES --- */
+        .chat-bubble {
+            position: absolute; background: white; color: black; padding: 4px 8px; border-radius: 8px;
+            font-size: 11px; font-weight: bold; font-family: 'Verdana', sans-serif;
+            border: 1px solid #000; box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+            pointer-events: none; white-space: nowrap; z-index: 5; 
+            animation: floatUp 1.5s forwards; opacity: 0.9;
+        }
+        @keyframes floatUp {
+            0% { transform: translateY(0) scale(1); opacity: 1; }
+            50% { opacity: 0.9; }
+            100% { transform: translateY(-100px) scale(0.8); opacity: 0; }
+        }
+
+        /* --- AVATAR MENU --- */
+        #avatar-menu {
+            display: none; position: absolute; width: 200px;
+            background-color: rgba(0, 0, 0, 0.9); border: 1px solid #555;
+            border-radius: 5px; box-shadow: 0 0 15px rgba(0,0,0,0.8);
+            font-family: 'Segoe UI', sans-serif; font-size: 13px;
+            z-index: 150; pointer-events: auto; color: #ddd;
+        }
+        .menu-header { background-color: #111; padding: 6px 10px; display: flex; align-items: center; border-bottom: 1px solid #444; font-weight: bold; font-size: 14px; cursor: move; user-select: none; }
+        .close-menu { margin-left: auto; cursor: pointer; color: #888; font-size: 16px; }
+        .action-item { padding: 8px 15px; cursor: pointer; color: #eee; border-bottom: 1px solid #222; }
+        .action-item:hover { background-color: #333; color: #fff; }
+
+        /* AUTH & DASHBOARD STYLES */
+        .auth-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: linear-gradient(135deg, #1a1a1a, #000); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 200; }
+        .auth-box { width: 300px; padding: 30px; background: rgba(255, 255, 255, 0.1); border: 1px solid #444; border-radius: 8px; text-align: center; }
+        .auth-input { width: 90%; padding: 10px; margin-bottom: 15px; background: #222; border: 1px solid #555; color: white; border-radius: 4px; }
+        .auth-btn { width: 100%; padding: 10px; background: linear-gradient(to bottom, #ffeb3b, #fbc02d); border: none; font-weight: bold; }
+        .link-text { margin-top: 15px; font-size: 12px; color: #aaa; cursor: pointer; text-decoration: underline; }
+        .error-msg { color: #ff5555; font-size: 12px; margin-bottom: 10px; display: none; }
+        
+        #signup-view, #dashboard-view, #room-view { display: none; }
+        #login-view { display: flex; }
+        
+        #dashboard-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at 30% 50%, #2a2a2a, #000000); z-index: 50; }
+        #menu-area { width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .dashboard-btn { width: 150px; height: 120px; background: linear-gradient(to bottom, #555, #333 50%, #222); border: 1px solid #666; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; }
+        .dashboard-btn:hover { filter: brightness(1.2); transform: scale(1.05); }
+
+        /* CHAT CSS */
+        #chat-interface-wrapper { display: block; }
+        #chat-history { height: 200px; overflow-y: scroll; padding: 10px; font-size: 13px; line-height: 1.5; color: white; scrollbar-width: thin; scrollbar-color: #444 #111; }
+        .chat-line { margin-bottom: 2px; font-family: 'Verdana', sans-serif; font-size: 12px; }
+        .username { color: #8FBC8F; font-weight: bold; cursor: pointer; }
+        .message-text { color: #e0e0e0; }
+        .system-msg { color: #ffd700; font-style: italic; font-weight: bold; } 
+        #input-row { display: flex; background-color: #111; padding: 4px; align-items: center; border-top: 1px solid #333; }
+        #msgInput { flex-grow: 1; background-color: #222; border: 1px solid #555; color: white; padding: 5px 8px; font-size: 12px; outline: none; }
+        #send-btn { background: linear-gradient(to bottom, #ffeb3b, #fbc02d); border: 1px solid #c49000; color: black; font-weight: bold; font-size: 12px; padding: 5px 20px; margin-left: 5px; cursor: pointer; }
+        #toolbar { height: 30px; background-color: #000; display: flex; align-items: center; border-bottom: 2px solid #b8860b; padding-left: 5px; }
+        .icon { width: 35px; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #888; cursor: pointer; user-select: none; }
+        .icon.active { background: linear-gradient(to bottom, #ffd700, #ffb300); color: black; }
+        #scroll-notice { position: absolute; bottom: 40px; right: 20px; background: #333; color: yellow; font-size: 10px; padding: 2px 5px; display: none; z-index: 500; border: 1px solid yellow; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+</head>
+<body>
+
+    <div id="battle-hud">
+        <div class="hud-title">⚔️ REAL-TIME CHAT HUD ⚔️</div>
+        <div class="score-row">
+            <div class="score-box" style="border-color: #00ff00;">
+                <div style="color:#00ff00; font-size:11px;">YOU</div>
+                <div class="score-val" id="my-score">0</div>
+                <div class="mps-val" id="my-mps">0 MPS</div>
+            </div>
+            <div class="score-box" style="border-color: #ff5555;">
+                <div style="color:#ff5555; font-size:11px;">TOTAL SERVER CHAT</div>
+                <div class="score-val" id="global-score">0</div>
+            </div>
+        </div>
+        <div class="control-row">
+            <p>Waiting for other players...</p>
+            <button onclick="resetBattleScores()" style="background:#333; color:#fff; border:1px solid #555; padding:2px 10px; margin-top:5px; font-size:10px;">RESET STATS</button>
+        </div>
+    </div>
+
+    <div id="login-view" class="auth-container">
+        <div class="auth-box">
+            <div class="auth-title" style="font-size: 24px; color: #ffd700; font-weight: bold; margin-bottom: 20px;">IMVU Classic Login</div>
+            <div id="login-error" class="error-msg">Invalid credentials</div>
+            <input type="text" id="login-user" class="auth-input" placeholder="Username">
+            <input type="password" id="login-pass" class="auth-input" placeholder="Password">
+            <button class="auth-btn" onclick="handleLogin()">Sign In</button>
+            <div class="link-text" onclick="showSignup()">Sign Up</div>
+        </div>
+    </div>
+
+    <div id="signup-view" class="auth-container">
+        <div class="auth-box">
+            <div class="auth-title" style="font-size: 24px; color: #ffd700; font-weight: bold; margin-bottom: 20px;">Create Account</div>
+            <div id="signup-error" class="error-msg">Username taken</div>
+            <input type="text" id="signup-user" class="auth-input" placeholder="New Username">
+            <input type="password" id="signup-pass" class="auth-input" placeholder="New Password">
+            <button class="auth-btn" onclick="handleSignup()">Register</button>
+            <div class="link-text" onclick="showLogin()">Back to Login</div>
+        </div>
+    </div>
+
+    <div id="dashboard-view">
+        <div id="menu-area">
+            <div style="width: 450px; height: 60px; background: linear-gradient(to right, #500, #900); border: 1px solid #f00; margin-bottom: 20px; display: flex; align-items: center; justify-content: center; font-weight: bold; box-shadow: 0 0 10px rgba(255,0,0,0.5);">LOBBY</div>
+            <div id="button-grid">
+                <div class="dashboard-btn" onclick="enterRoom()">
+                    <div class="btn-icon">🏠💬</div>
+                    <div class="btn-text">Enter Room</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="room-view">
+        <div id="canvas-container" style="position: absolute; top:0; left:0; width:100%; height:100%; z-index:1;"></div>
+        
+        <div id="avatar-menu">
+            <div class="menu-header" id="menu-header-handle">
+                <span id="menu-username-display">Username</span> 
+                <span class="close-menu" onclick="closeAvatarMenu()">✖</span>
+            </div>
+            <div class="action-item" onclick="closeAvatarMenu()">View Profile</div>
+        </div>
+
+        <button id="exit-btn" onclick="exitRoom()">✖ EXIT ROOM</button>
+        <div id="ui-layer">
+            <div id="imvu-chat-panel">
+                <div class="chat-header-bar"></div>
+                <div id="chat-interface-wrapper">
+                    <div id="chat-history"></div>
+                    <div id="scroll-notice">VIEW PAUSED (Scroll down to resume)</div>
+                    <div id="input-row">
+                        <label style="margin-right:10px; color:#aaa; font-size:10px;"><input type="checkbox" id="focus-lock-check" checked> Lock Focus</label>
+                        <input type="text" id="msgInput" placeholder="Chat here..." autocomplete="off">
+                        <button id="send-btn" onclick="sendMsg()">Send</button>
+                    </div>
+                </div>
+                <div id="toolbar">
+                    <div class="icon active" id="chat-icon" onclick="toggleChatWindow()">💬</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- SOCKET SETUP ---
+        const socket = io();
+        let currentUser = "Guest";
+        let mySocketId = null;
+
+        // --- AUTH ---
+        function showSignup() { document.getElementById('login-view').style.display='none'; document.getElementById('signup-view').style.display='flex'; }
+        function showLogin() { document.getElementById('signup-view').style.display='none'; document.getElementById('login-view').style.display='flex'; }
+        
+        async function handleLogin() {
+            const u = document.getElementById('login-user').value;
+            const p = document.getElementById('login-pass').value;
+            const res = await fetch('/login', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u, password:p}) });
+            const data = await res.json();
+            if(data.success){ currentUser=data.username; document.getElementById('login-view').style.display='none'; document.getElementById('dashboard-view').style.display='flex'; }
+            else { document.getElementById('login-error').style.display='block'; document.getElementById('login-error').innerText=data.msg; }
+        }
+        async function handleSignup() {
+            const u = document.getElementById('signup-user').value;
+            const p = document.getElementById('signup-pass').value;
+            const res = await fetch('/register', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({username:u, password:p}) });
+            const data = await res.json();
+            if(data.success) { alert("Registered!"); showLogin(); }
+            else { document.getElementById('signup-error').style.display='block'; document.getElementById('signup-error').innerText=data.msg; }
+        }
+
+        // --- ROOM LOGIC ---
+        const dashboard = document.getElementById('dashboard-view');
+        const room = document.getElementById('room-view');
+        const battleHud = document.getElementById('battle-hud');
+
+        function enterRoom() {
+            dashboard.style.display='none'; room.style.display='block'; battleHud.style.display='block';
+            onWindowResize();
+            // Tell server we are joining
+            socket.emit('join game', currentUser);
+            setInterval(calculateMPS, 1000);
+        }
+        function exitRoom() { location.reload(); }
+
+        let isChatOpen = true;
+        function toggleChatWindow() {
+            const wrapper = document.getElementById('chat-interface-wrapper');
+            if(isChatOpen) { wrapper.style.display='none'; isChatOpen=false; }
+            else { wrapper.style.display='block'; isChatOpen=true; }
+        }
+
+        // --- CHAT RENDERING ---
+        const chatBox = document.getElementById('chat-history');
+        const input = document.getElementById('msgInput');
+        const focusLockCheck = document.getElementById('focus-lock-check');
+        const scrollNotice = document.getElementById('scroll-notice');
+
+        input.addEventListener('blur', () => { if(focusLockCheck.checked && room.style.display!=='none') setTimeout(()=>input.focus(), 10); });
+
+        // RECEIVE CHAT FROM SERVER
+        socket.on('chat message', (data) => {
+            renderChatLine('chat', data.username, data.message);
+            trackMessage(data.username === currentUser);
+        });
+
+        socket.on('system message', (msg) => { renderChatLine('system', null, msg); });
+
+        function renderChatLine(type, username, text) {
+            const tolerance = 20;
+            const isUserAtBottom = (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) < tolerance;
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-line';
+            if (type === 'system') msgDiv.innerHTML = `<span class="system-msg">*** ${text} ***</span>`;
+            else {
+                msgDiv.innerHTML = `<span class="username">${username}:</span> <span class="message-text">${text}</span>`;
+                createChatBubble(username, text);
+            }
+            chatBox.appendChild(msgDiv); 
+            if (isUserAtBottom) { chatBox.scrollTop = chatBox.scrollHeight; scrollNotice.style.display = 'none'; }
+            else { scrollNotice.style.display = 'block'; }
+        }
+
+        function sendMsg() {
+            const val = input.value;
+            if(val) {
+                // Send to server (server will echo it back to everyone)
+                socket.emit('chat message', { username: currentUser, message: val });
+                input.value = '';
+            }
+        }
+        input.addEventListener("keydown", (e) => { if (e.key === "Enter") sendMsg(); });
+
+        // --- HUD STATS ---
+        let myTotal = 0; let globalTotal = 0; let myPacketsThisSec = 0;
+        function trackMessage(isMe) {
+            globalTotal++;
+            document.getElementById('global-score').innerText = globalTotal;
+            if(isMe) { myTotal++; myPacketsThisSec++; document.getElementById('my-score').innerText = myTotal; }
+        }
+        function calculateMPS() {
+            document.getElementById('my-mps').innerText = myPacketsThisSec + " MPS";
+            myPacketsThisSec = 0; 
+        }
+        function resetBattleScores() { myTotal=0; globalTotal=0; document.getElementById('my-score').innerText="0"; document.getElementById('global-score').innerText="0"; }
+
+        // --- 3D SCENE ---
+        const container = document.getElementById('canvas-container');
+        const scene = new THREE.Scene(); scene.background = new THREE.Color(0x000000); 
+        const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 5, 20); 
+        const renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.outputEncoding = THREE.sRGBEncoding;
+        container.appendChild(renderer.domElement);
+
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4); scene.add(ambientLight);
+        const dirLight = new THREE.DirectionalLight(0xffffff, 0.6); dirLight.position.set(10, 20, 15); scene.add(dirLight);
+
+        // ROOM & FURNITURE
+        const texLoader = new THREE.TextureLoader();
+        const woodTex = texLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/hardwood2_diffuse.jpg');
+        woodTex.wrapS=woodTex.wrapT=THREE.RepeatWrapping; woodTex.repeat.set(4,4);
+        const wallTex = texLoader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/brick_diffuse.jpg');
+        wallTex.wrapS=wallTex.wrapT=THREE.RepeatWrapping; wallTex.repeat.set(2,1);
+        
+        const floor = new THREE.Mesh(new THREE.PlaneGeometry(20, 20), new THREE.MeshStandardMaterial({ map: woodTex }));
+        floor.rotation.x = -Math.PI/2; scene.add(floor);
+        const backWall = new THREE.Mesh(new THREE.PlaneGeometry(20, 12), new THREE.MeshStandardMaterial({ map: wallTex }));
+        backWall.position.set(0, 6, -10); scene.add(backWall);
+
+        // COUCH
+        const couchGroup = new THREE.Group();
+        const couchMat = new THREE.MeshStandardMaterial({ color: 0x111111 });
+        const seat = new THREE.Mesh(new THREE.BoxGeometry(8, 1.5, 3), couchMat); seat.position.y = 0.75; couchGroup.add(seat);
+        const back = new THREE.Mesh(new THREE.BoxGeometry(8, 2.5, 0.5), couchMat); back.position.y = 2; back.position.z = -1.25; couchGroup.add(back);
+        const armL = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 3), couchMat); armL.position.set(-4.5, 1, 0); couchGroup.add(armL);
+        const armR = new THREE.Mesh(new THREE.BoxGeometry(1, 2, 3), couchMat); armR.position.set(4.5, 1, 0); couchGroup.add(armR);
+        couchGroup.position.set(0,0,-5); scene.add(couchGroup);
+
+        // --- AVATAR SYSTEM ---
+        const avatars = {}; // Stores { socketId: { mesh, mixer, actions, target } }
+        const loader = new THREE.GLTFLoader();
+
+        // 1. RECEIVE PLAYERS LIST (Includes self + others)
+        socket.on('init players', (serverPlayers) => {
+            for(let id in serverPlayers) spawnAvatar(serverPlayers[id]);
+        });
+        
+        // 2. RECEIVE NEW PLAYER
+        socket.on('new player', (p) => spawnAvatar(p));
+        
+        // 3. REMOVE PLAYER
+        socket.on('remove player', (id) => {
+            if(avatars[id]) { scene.remove(avatars[id].mesh); delete avatars[id]; }
+        });
+
+        // 4. MOVE PLAYER
+        socket.on('player moved', (data) => {
+            if(avatars[data.id]) {
+                const av = avatars[data.id];
+                av.target.set(data.x, 0, data.z);
+                av.mesh.lookAt(data.x, 0, data.z);
+                if(av.action !== 'Walking') {
+                    if(av.actions['Idle']) av.actions['Idle'].fadeOut(0.2);
+                    if(av.actions['Walking']) av.actions['Walking'].reset().fadeIn(0.2).play();
+                    av.action = 'Walking';
+                }
+            }
+        });
+
+        socket.on('player stop', (id) => {
+             if(avatars[id]) {
+                 const av = avatars[id];
+                 if(av.actions['Walking']) av.actions['Walking'].fadeOut(0.2);
+                 if(av.actions['Idle']) av.actions['Idle'].reset().fadeIn(0.2).play();
+                 av.action = 'Idle';
+             }
+        });
+
+        function spawnAvatar(data) {
+            if(avatars[data.id]) return; // prevent duplicates
+            loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb', (gltf) => {
+                const model = gltf.scene;
+                model.scale.set(0.5,0.5,0.5);
+                model.position.set(data.x, 0, data.z);
+                model.userData = { username: data.username };
+                scene.add(model);
+
+                const mixer = new THREE.AnimationMixer(model);
+                const actions = {};
+                const idle = THREE.AnimationClip.findByName(gltf.animations, 'Idle');
+                const walk = THREE.AnimationClip.findByName(gltf.animations, 'Walking');
+                if(idle) actions['Idle'] = mixer.clipAction(idle);
+                if(walk) actions['Walking'] = mixer.clipAction(walk);
+                
+                if(actions['Idle']) actions['Idle'].play();
+
+                avatars[data.id] = { mesh: model, mixer, actions, action: 'Idle', target: new THREE.Vector3(data.x,0,data.z) };
+            });
+        }
+
+        function createChatBubble(username, text) {
+            let senderMesh = null;
+            for(let id in avatars) {
+                if(avatars[id].mesh.userData.username === username) senderMesh = avatars[id].mesh;
+            }
+            if(!senderMesh) return;
+            
+            const headPos = senderMesh.position.clone().add(new THREE.Vector3(0, 2.2, 0));
+            headPos.project(camera);
+            const x = (headPos.x * .5 + .5) * window.innerWidth;
+            const y = (-(headPos.y * .5) + .5) * window.innerHeight;
+
+            const b = document.createElement('div');
+            b.className = 'chat-bubble'; b.innerText = text;
+            b.style.left = x+'px'; b.style.top = y+'px';
+            document.getElementById('room-view').appendChild(b);
+            setTimeout(()=>b.remove(), 1500);
+        }
+
+        // --- INTERACTION ---
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        
+        // NODES
+        const nodes = [];
+        function createNode(x, z) {
+            const geo = new THREE.CylinderGeometry(1, 1, 0.1, 16);
+            const mat = new THREE.MeshBasicMaterial({ color: 0xffff00, opacity: 0.3, transparent: true });
+            const node = new THREE.Mesh(geo, mat);
+            node.position.set(x, 0.1, z);
+            node.userData = { x, z };
+            scene.add(node);
+            nodes.push(node);
+        }
+        createNode(-5, 5); createNode(5, 5); createNode(0, 0); createNode(-5, -5); createNode(5, -5);
+
+        renderer.domElement.addEventListener('pointerdown', (e) => {
+            if(room.style.display==='none') return;
+            const rect = renderer.domElement.getBoundingClientRect();
+            mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+            mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            // Check Node Clicks (Movement)
+            const nodeHits = raycaster.intersectObjects(nodes);
+            if(nodeHits.length > 0) {
+                const d = nodeHits[0].object.userData;
+                socket.emit('move', { x: d.x, z: d.z });
+                return;
+            }
+
+            // Check Avatar Clicks (Menu)
+            const avatarMeshes = [];
+            for(let id in avatars) avatarMeshes.push(avatars[id].mesh);
+            
+            let hitAvatar = null;
+            for(let av of avatarMeshes) {
+                if(raycaster.intersectObject(av, true).length > 0) { hitAvatar = av; break; }
+            }
+
+            if(hitAvatar) {
+                const menu = document.getElementById('avatar-menu');
+                document.getElementById('menu-username-display').textContent = hitAvatar.userData.username;
+                menu.style.display = 'block';
+                menu.style.left = e.clientX + 'px'; menu.style.top = e.clientY + 'px';
+            } else {
+                document.getElementById('avatar-menu').style.display = 'none';
+            }
+        });
+
+        function closeAvatarMenu() { document.getElementById('avatar-menu').style.display = 'none'; }
+
+        // --- ANIMATION LOOP ---
+        const clock = new THREE.Clock();
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(0,2,0);
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if(room.style.display!=='none') {
+                const delta = clock.getDelta();
+                for(let id in avatars) {
+                    const av = avatars[id];
+                    if(av.mixer) av.mixer.update(delta);
+                    if(av.mesh.position.distanceTo(av.target) > 0.1) {
+                        av.mesh.position.lerp(av.target, 0.05);
+                    } else if(av.action === 'Walking') {
+                        socket.emit('stop move');
+                        if(av.actions['Walking']) av.actions['Walking'].fadeOut(0.2);
+                        if(av.actions['Idle']) av.actions['Idle'].reset().fadeIn(0.2).play();
+                        av.action = 'Idle';
+                    }
+                }
+                controls.update();
+                renderer.render(scene, camera);
+            }
+        }
+        animate();
+        window.onresize = () => { camera.aspect=window.innerWidth/window.innerHeight; camera.updateProjectionMatrix(); renderer.setSize(window.innerWidth,window.innerHeight); };
+    </script>
+</body>
+</html>
