@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Chat Spam War</title>
+    <title>IMVU Clone - Smart Spam</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         /* GLOBAL RESET */
@@ -32,7 +32,7 @@
         .mps-val { font-size: 11px; color: #aaa; }
         .control-row { margin-top: 10px; border-top: 1px solid #333; padding-top: 5px; color: #888; font-size: 11px; }
 
-        /* --- 3D BUBBLES (Standard) --- */
+        /* --- 3D BUBBLES --- */
         .chat-bubble {
             position: absolute; background: white; color: black; padding: 4px 8px; border-radius: 8px;
             font-size: 11px; font-weight: bold; font-family: 'Verdana', sans-serif;
@@ -75,7 +75,7 @@
         .dashboard-btn { width: 150px; height: 120px; background: linear-gradient(to bottom, #555, #333 50%, #222); border: 1px solid #666; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; }
         .dashboard-btn:hover { filter: brightness(1.2); transform: scale(1.05); }
 
-        /* --- ANIMATED CHATBOX CSS --- */
+        /* --- SMART ANIMATED CHATBOX CSS --- */
         #chat-interface-wrapper { display: block; }
         
         #chat-history { 
@@ -89,23 +89,31 @@
             scrollbar-color: #444 #111; 
         }
 
-        /* THE BOUNCY ANIMATION FOR CHAT LINES */
-        @keyframes chatBounce {
-            0% { opacity: 0; transform: translateX(-20px) scale(0.8); }
-            50% { opacity: 1; transform: translateX(5px) scale(1.05); }
-            70% { transform: translateX(-2px) scale(0.98); }
-            100% { opacity: 1; transform: translateX(0) scale(1); }
-        }
-
         .chat-line { 
             margin-bottom: 4px; 
             font-family: 'Verdana', sans-serif; 
             font-size: 12px;
-            
-            /* Apply the animation here */
-            animation: chatBounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            display: block;
+        }
+
+        /* Normal: No Animation, just appear */
+        .chat-line.normal {
+            animation: none;
+        }
+
+        /* Spam: Bouncy / Wobbly Animation */
+        @keyframes spamBounce {
+            0% { transform: scale(0.9) translateX(-2px); opacity: 0.5; }
+            40% { transform: scale(1.05) translateX(2px); opacity: 1; }
+            70% { transform: scale(0.98) translateX(-1px); }
+            100% { transform: scale(1) translateX(0); }
+        }
+
+        .chat-line.spam { 
+            animation: spamBounce 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
             transform-origin: left center;
-            display: block; /* Ensure it takes up space */
+            color: #fff;
+            text-shadow: 0 0 5px rgba(255, 215, 0, 0.2); /* Slight glow when spamming */
         }
 
         .username { color: #8FBC8F; font-weight: bold; cursor: pointer; }
@@ -142,7 +150,7 @@
             </div>
         </div>
         <div class="control-row">
-            <p>Spam to win the chat!</p>
+            <p>Spam to see the bouncy effect!</p>
             <button onclick="resetBattleScores()" style="background:#333; color:#fff; border:1px solid #555; padding:2px 10px; margin-top:5px; font-size:10px;">RESET STATS</button>
         </div>
     </div>
@@ -290,13 +298,24 @@
 
         socket.on('system message', (msg) => { renderChatLine('system', null, msg); });
 
+        // TIME TRACKING FOR SPAM DETECTION
+        let lastChatTime = 0;
+
         function renderChatLine(type, username, text) {
             const tolerance = 20;
             const isUserAtBottom = (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) < tolerance;
             const msgDiv = document.createElement('div');
             
-            // Assign class for animation
-            msgDiv.className = 'chat-line';
+            // --- SPAM DETECTION LOGIC ---
+            const now = Date.now();
+            const timeDiff = now - lastChatTime;
+            lastChatTime = now;
+            
+            // If less than 800ms between messages, use 'spam' class (bouncy)
+            // Otherwise use 'normal' class (static)
+            const animationClass = (timeDiff < 800) ? 'spam' : 'normal';
+
+            msgDiv.className = `chat-line ${animationClass}`;
             
             if (type === 'system') msgDiv.innerHTML = `<span class="system-msg">*** ${text} ***</span>`;
             else {
@@ -306,7 +325,6 @@
             }
             chatBox.appendChild(msgDiv); 
             
-            // Auto-scroll logic (Force scroll to see animation)
             if (isUserAtBottom) { 
                 chatBox.scrollTop = chatBox.scrollHeight; 
                 scrollNotice.style.display = 'none'; 
