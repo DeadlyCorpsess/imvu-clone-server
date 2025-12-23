@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Instant Robots</title>
+    <title>IMVU Clone - Fixed Robots & Anim</title>
     <!-- Socket.io -->
     <script src="/socket.io/socket.io.js"></script>
     <!-- Three.js Libraries -->
@@ -79,7 +79,7 @@
         #info-btn { width: 26px; height: 26px; background: linear-gradient(to bottom, #fff, #ccc); border: 1px solid #999; border-radius: 50%; color: black; font-weight: bold; font-family: serif; font-size: 14px; font-style: italic; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5); }
         #exit-btn { position: absolute; top: 15px; right: 15px; background: #d32f2f; color: white; border: 1px solid #fff; padding: 5px 10px; font-weight: bold; font-size: 12px; z-index: 200; cursor: pointer; }
 
-        /* --- AUTHENTIC YELLOW CHATBOX --- */
+        /* --- AUTHENTIC CHATBOX STYLE (YELLOW/BLACK) --- */
         #ui-layer { 
             position: absolute; bottom: 0; left: 0; width: 100%; height: 100%; 
             z-index: 300; pointer-events: none; 
@@ -107,11 +107,17 @@
             scrollbar-width: thin; scrollbar-color: #ffd700 #111; 
         }
 
-        /* INSTANT ANIMATION FOR SPAM */
+        /* ANIMATION FOR SPAM (Smooth Pop-Up) */
+        @keyframes messagePop {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
         .chat-line { 
             margin-bottom: 4px; display: block; 
             font-family: 'Verdana', sans-serif;
-            animation: none; /* Instant */
+            /* Animation applied to every message */
+            animation: messagePop 0.2s ease-out forwards;
         }
 
         .username { color: #8FBC8F; font-weight: bold; cursor: pointer; margin-right: 5px; }
@@ -294,7 +300,7 @@
         function enterRoom(){ closeRoomCard(); isInRoom=true; switchView('room-view'); onWindowResize(); socket.emit('join game',currentUser); }
         function exitRoom(){ isInRoom=false; switchView('room-list-view'); document.getElementById('room-list-view').style.display='flex'; }
 
-        // CHAT (INSTANT SPAM)
+        // CHAT & ANIMATION (NO LAG)
         let isChatOpen=true;
         function toggleChatWindow(){
             const w=document.getElementById('chat-interface-wrapper'), r=document.getElementById('input-row'), p=document.getElementById('imvu-chat-panel');
@@ -311,13 +317,13 @@
             if(type==='system') msgDiv.innerHTML=`<span class="system-msg">*** ${text} ***</span>`;
             else {
                 msgDiv.innerHTML=`<span class="username">${username}:</span> <span class="message-text">${text}</span>`;
-                // INSTANT BUBBLES - NO THROTTLE
+                // ALWAYS CREATE BUBBLE (SPAM ENABLED)
                 createChatBubble(username, text);
             }
             chatBox.appendChild(msgDiv);
             
-            // Allow more messages before cutting off (better for spam flow)
-            if(chatBox.childElementCount > 100) {
+            // Limit history to 50 items to prevent DOM lag during spam
+            if(chatBox.childElementCount > 50) {
                 chatBox.removeChild(chatBox.firstChild);
             }
             chatBox.scrollTop = chatBox.scrollHeight;
@@ -354,42 +360,32 @@
         socket.on('remove player',(id)=>{ delete roomPlayers[id]; if(avatars[id]){scene.remove(avatars[id].mesh);delete avatars[id];} if(document.getElementById('room-card-overlay').style.display==='flex' && isInRoom)openRoomCard(true); });
         socket.on('player moved',(d)=>{ if(avatars[d.id]){ const av=avatars[d.id]; av.target.set(d.x,0,d.z); av.mesh.lookAt(d.x,0,d.z); if(av.action!=='Walking'){ if(av.actions['Idle'])av.actions['Idle'].fadeOut(0.2); if(av.actions['Sitting'])av.actions['Sitting'].fadeOut(0.2); if(av.actions['Walking'])av.actions['Walking'].reset().fadeIn(0.2).play(); av.action='Walking'; } } });
 
-        // FORCE SPAWN + FALLBACK
+        // ROBOT LOADING - CDN FIX + FALLBACK
         function spawnAvatar(id,d){ 
             if(avatars[id])return; 
-            
-            // 1. Create Placeholder (Green Wireframe Box)
-            const boxGeo = new THREE.BoxGeometry(0.5, 1.5, 0.5);
-            const boxMat = new THREE.MeshBasicMaterial({color: 0x00ff00, wireframe: true});
-            const placeholder = new THREE.Mesh(boxGeo, boxMat);
-            placeholder.position.set(d.x, 0.75, d.z);
-            scene.add(placeholder);
-            
-            // 2. Load Model
-            loader.load('https://raw.githubusercontent.com/mrdoob/three.js/master/examples/models/gltf/RobotExpressive/RobotExpressive.glb', 
+            loader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb', 
                 (gltf)=>{ 
-                    scene.remove(placeholder); // Remove placeholder on success
-                    
                     const m=gltf.scene; m.scale.set(0.4,0.4,0.4); m.position.set(d.x,0,d.z); 
                     m.traverse((o)=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}}); 
                     m.userData={username:d.username,socketId:id}; 
                     scene.add(m); 
-                    
                     const mixer=new THREE.AnimationMixer(m); const actions={}; 
                     ['Idle','Walking','Sitting'].forEach(n=>{const c=THREE.AnimationClip.findByName(gltf.animations,n);if(c)actions[n]=mixer.clipAction(c);}); 
                     if(actions['Idle'])actions['Idle'].play(); 
-                    
                     avatars[id]={mesh:m,mixer,actions,action:'Idle',target:new THREE.Vector3(d.x,0,d.z)}; 
-                    
-                    if(id===mySocketId) renderChatLine('system',null,"You have entered the room."); 
-                    else renderChatLine('system',null,`${d.username} has joined.`); 
+                    if(id===mySocketId)renderChatLine('system',null,"You have entered the room."); else renderChatLine('system',null,`${d.username} has joined.`); 
                 },
                 undefined,
                 (error) => {
-                    // On Error, keep placeholder but make it solid red so we know it failed
-                    console.log("Model failed to load, using placeholder");
-                    placeholder.material = new THREE.MeshStandardMaterial({color: 0xff0000});
-                    avatars[id] = {mesh: placeholder, mixer: null, actions: {}, action: 'Idle', target: new THREE.Vector3(d.x,0,d.z)};
+                    // Fallback Green Cylinder if robot fails to load
+                    const geo = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16);
+                    const mat = new THREE.MeshStandardMaterial({color: 0x00ff00});
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.set(d.x, 0.75, d.z);
+                    mesh.userData = {username:d.username, socketId:id};
+                    scene.add(mesh);
+                    avatars[id] = {mesh: mesh, mixer: null, actions: {}, action: 'Idle', target: new THREE.Vector3(d.x,0,d.z)};
+                    if(id===mySocketId)renderChatLine('system',null,"You have entered (Fallback Mode).");
                 }
             ); 
         }
