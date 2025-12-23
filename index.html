@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Robot Edition</title>
+    <title>IMVU Clone - Robot Spam Edition</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         /* GLOBAL RESET */
@@ -32,27 +32,36 @@
         .mps-val { font-size: 11px; color: #aaa; }
         .control-row { margin-top: 10px; border-top: 1px solid #333; padding-top: 5px; color: #888; font-size: 11px; }
 
-        /* --- 3D CHAT BUBBLES (WOBBLY ANIMATION) --- */
+        /* --- 3D CHAT BUBBLES (STACKING & WOBBLY) --- */
         .chat-bubble {
-            position: absolute; background: white; color: black; padding: 5px 10px; border-radius: 8px;
-            font-size: 11px; font-weight: bold; font-family: 'Verdana', sans-serif;
-            border: 1px solid #000; box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
-            pointer-events: none; white-space: nowrap; z-index: 5; 
+            position: absolute; 
+            background: white; 
+            color: black; 
+            padding: 5px 10px; 
+            border-radius: 8px;
+            font-size: 11px; 
+            font-weight: bold; 
+            font-family: 'Verdana', sans-serif;
+            border: 1px solid #000; 
+            box-shadow: 3px 3px 0px rgba(0,0,0,0.2);
+            pointer-events: none; 
+            white-space: nowrap; 
+            z-index: 5;
             
-            /* The "Wobbly" Animation applied here */
-            animation: wobblyFloat 3s forwards; 
+            /* Smoothly slide up when stacked */
+            transition: top 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+            
+            /* The Pop-in Animation */
+            animation: bubblePop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
             transform-origin: center bottom;
         }
-        
-        /* THE WOBBLY / BOUNCY ANIMATION */
-        @keyframes wobblyFloat {
-            0% { transform: translateY(0) scale(0); opacity: 0; }
-            10% { transform: translateY(-10px) scale(1.1); opacity: 1; } /* Pop up big */
-            20% { transform: translateY(-10px) scale(1) rotate(-3deg); } /* Bounce back & tilt */
-            40% { transform: translateY(-25px) rotate(3deg); } /* Sway right */
-            60% { transform: translateY(-40px) rotate(-2deg); } /* Sway left */
-            80% { transform: translateY(-60px) rotate(1deg); opacity: 1; }
-            100% { transform: translateY(-90px) scale(0.9); opacity: 0; } /* Fade out high */
+
+        /* WOBBLY POP ANIMATION */
+        @keyframes bubblePop {
+            0% { transform: scale(0) translateY(20px) rotate(-5deg); opacity: 0; }
+            50% { transform: scale(1.2) translateY(-5px) rotate(3deg); opacity: 1; }
+            70% { transform: scale(0.9) translateY(0) rotate(-2deg); }
+            100% { transform: scale(1) translateY(0) rotate(0deg); opacity: 1; }
         }
 
         /* --- AVATAR MENU --- */
@@ -84,7 +93,7 @@
         .dashboard-btn { width: 150px; height: 120px; background: linear-gradient(to bottom, #555, #333 50%, #222); border: 1px solid #666; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; }
         .dashboard-btn:hover { filter: brightness(1.2); transform: scale(1.05); }
 
-        /* CLASSIC CHAT CSS (Restored) */
+        /* CLASSIC CHAT CSS (Yellow/Black) */
         #chat-interface-wrapper { display: block; }
         #chat-history { height: 200px; overflow-y: scroll; padding: 10px; font-size: 13px; line-height: 1.5; color: white; scrollbar-width: thin; scrollbar-color: #444 #111; }
         .chat-line { margin-bottom: 2px; font-family: 'Verdana', sans-serif; font-size: 12px; }
@@ -277,6 +286,7 @@
             if (type === 'system') msgDiv.innerHTML = `<span class="system-msg">*** ${text} ***</span>`;
             else {
                 msgDiv.innerHTML = `<span class="username">${username}:</span> <span class="message-text">${text}</span>`;
+                // Add to 3D Bubbles
                 createChatBubble(username, text);
             }
             chatBox.appendChild(msgDiv); 
@@ -439,26 +449,84 @@
             });
         }
 
-        // --- BUBBLE RENDERER ---
+        // --- STACKING BUBBLE RENDERER ---
+        // Keeps track of active bubbles for each user
+        const bubbleStacks = {}; 
+
         function createChatBubble(username, text) {
             let senderMesh = null;
+            let senderId = null;
+            
+            // 1. Find the 3D Avatar
             for(let id in avatars) {
-                if(avatars[id].mesh.userData.username === username) senderMesh = avatars[id].mesh;
+                if(avatars[id].mesh.userData.username === username) {
+                    senderMesh = avatars[id].mesh;
+                    senderId = id;
+                }
             }
             if(!senderMesh) return;
-            
-            const headPos = senderMesh.position.clone().add(new THREE.Vector3(0, 2.0, 0));
-            headPos.project(camera);
-            
-            const x = (headPos.x * .5 + .5) * window.innerWidth;
-            const y = (-(headPos.y * .5) + .5) * window.innerHeight;
 
+            // 2. Initialize stack if not exists
+            if(!bubbleStacks[senderId]) bubbleStacks[senderId] = [];
+
+            // 3. Calculate Screen Position
+            const headPos = senderMesh.position.clone().add(new THREE.Vector3(0, 2.2, 0));
+            headPos.project(camera);
+            const x = (headPos.x * .5 + .5) * window.innerWidth;
+            const baseY = (-(headPos.y * .5) + .5) * window.innerHeight;
+
+            // 4. Create Bubble Element
             const b = document.createElement('div');
-            b.className = 'chat-bubble'; b.innerText = text;
-            b.style.left = x+'px'; b.style.top = y+'px';
+            b.className = 'chat-bubble'; 
+            b.innerText = text;
+            
+            // 5. Add to Stack and DOM
+            bubbleStacks[senderId].push(b);
             room.appendChild(b);
             
-            setTimeout(()=> { b.remove() }, 3000); // Removed fade out JS, relying on CSS animation
+            // 6. Update Positions for THIS User's Stack
+            updateStackPositions(senderId, x, baseY);
+
+            // 7. Remove after 5 seconds
+            setTimeout(() => {
+                b.style.opacity = '0'; // Fade out
+                // Wait for fade to finish before removing from array
+                setTimeout(() => {
+                    b.remove();
+                    // Remove from array
+                    const index = bubbleStacks[senderId].indexOf(b);
+                    if (index > -1) {
+                        bubbleStacks[senderId].splice(index, 1);
+                        // Re-adjust remaining bubbles (they fall down)
+                        updateStackPositions(senderId, x, baseY);
+                    }
+                }, 300);
+            }, 5000);
+        }
+
+        function updateStackPositions(userId, x, baseY) {
+            const stack = bubbleStacks[userId];
+            if(!stack) return;
+
+            // Loop backwards: Newest is at bottom (index = length-1), Oldest at top (index = 0)
+            // Or we can just stack them up. 
+            // Let's say Newest is at bottom.
+            
+            for (let i = 0; i < stack.length; i++) {
+                const bubble = stack[i];
+                // How many bubbles are "newer" than this one?
+                // If i is length-1 (newest), count is 0.
+                const offsetCount = (stack.length - 1) - i; 
+                
+                // Each bubble is approx 30px high + gap
+                const verticalOffset = offsetCount * 35; 
+
+                bubble.style.left = x + 'px';
+                bubble.style.top = (baseY - verticalOffset) + 'px';
+                
+                // Optional: Make older bubbles slightly transparent
+                if(offsetCount > 4) bubble.style.opacity = '0.5';
+            }
         }
 
         // --- INTERACTION ---
@@ -546,6 +614,15 @@
                         if(av.actions['Walking']) av.actions['Walking'].fadeOut(0.2);
                         if(av.actions['Idle']) av.actions['Idle'].reset().fadeIn(0.2).play();
                         av.action = 'Idle';
+                    }
+                    
+                    // RE-UPDATE BUBBLE POSITIONS (Follow Avatar)
+                    if(bubbleStacks[id] && bubbleStacks[id].length > 0) {
+                         const headPos = av.mesh.position.clone().add(new THREE.Vector3(0, 2.2, 0));
+                         headPos.project(camera);
+                         const x = (headPos.x * .5 + .5) * window.innerWidth;
+                         const baseY = (-(headPos.y * .5) + .5) * window.innerHeight;
+                         updateStackPositions(id, x, baseY);
                     }
                 }
                 controls.update();
