@@ -9,90 +9,90 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
     <style>
-        /* --- ALL ORIGINAL STYLES PRESERVED --- */
+        /* --- ORIGINAL PREMIUM STYLES --- */
         body { margin: 0; overflow: hidden; background-color: #050510; font-family: 'Segoe UI', Arial, sans-serif; color: white; }
         button { cursor: pointer; } input { outline: none; }
-        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
-        #imvu-chat-panel { pointer-events: auto; width: 100%; background-color: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column; border-top: 1px solid #444; backdrop-filter: blur(5px); }
-        #exit-btn { pointer-events: auto; position: absolute; top: 15px; right: 15px; background: #ff4444; color: white; border: none; border-radius: 4px; padding: 8px 15px; font-weight: bold; z-index: 200; }
         
-        /* Battle HUD */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
+        
+        /* The Blue Glass Chat Panel */
+        #imvu-chat-panel { 
+            pointer-events: auto; width: 100%; 
+            background-color: rgba(0, 10, 20, 0.85); 
+            display: flex; flex-direction: column; 
+            border-top: 2px solid #00e5ff; 
+            transition: height 0.3s; backdrop-filter: blur(10px); 
+        }
+        
+        #chat-interface-wrapper { padding: 15px; }
+        #chat-history { height: 200px; overflow-y: auto; margin-bottom: 10px; font-size: 14px; color: #eee; scrollbar-width: thin; }
+        .username { color: #00e5ff; font-weight: bold; margin-right: 8px; }
+
+        #input-row { display: flex; align-items: center; background: rgba(255,255,255,0.05); border-radius: 20px; padding: 5px 15px; border: 1px solid #333; }
+        #msgInput { flex-grow: 1; background: transparent; border: none; color: white; padding: 10px; font-size: 14px; }
+        #send-btn { background: #00e5ff; color: #000; border: none; font-weight: bold; padding: 8px 20px; border-radius: 20px; transition: 0.2s; }
+        #send-btn:hover { background: #fff; }
+
+        /* HUD */
         #battle-hud {
             position: absolute; top: 15px; left: 50%; transform: translateX(-50%);
-            width: 450px; background: rgba(10, 10, 20, 0.9); border: 1px solid #00e5ff;
-            border-radius: 8px; padding: 15px; z-index: 200; text-align: center; display: none; 
+            width: 400px; background: rgba(10, 10, 20, 0.9); border: 1px solid #00e5ff;
+            border-radius: 8px; padding: 12px; z-index: 200; text-align: center; display: none;
+            box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
         }
-        .score-row { display: flex; justify-content: space-between; margin-top: 10px; }
-        .score-box { width: 45%; background: rgba(255,255,255,0.05); padding: 8px; border-radius: 4px; border: 1px solid #333; }
-        
-        /* Chat bubbles */
-        .chat-bubble {
-            position: absolute; background: white; color: black; padding: 6px 12px; border-radius: 12px;
-            font-size: 12px; font-weight: bold; pointer-events: none; z-index: 5; 
-            animation: floatUp 2.5s forwards;
-        }
-        @keyframes floatUp { 0% { opacity:0; transform:translateY(0); } 10% { opacity:1; } 100% { opacity:0; transform:translateY(-50px); } }
 
-        /* Auth */
-        .auth-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #1a1a2e, #000); display: flex; align-items: center; justify-content: center; z-index: 200; }
-        .auth-box { width: 320px; padding: 40px; background: rgba(255, 255, 255, 0.05); border: 1px solid #333; border-radius: 12px; text-align: center; }
-        .auth-input { width: 90%; padding: 12px; margin-bottom: 15px; background: #111; border: 1px solid #444; color: white; }
-        .auth-btn { width: 100%; padding: 12px; background: #00e5ff; border: none; font-weight: bold; }
+        /* Auth & Dashboard */
+        .auth-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(circle at center, #001f3f, #000); display: flex; align-items: center; justify-content: center; z-index: 200; }
+        .auth-box { width: 320px; padding: 40px; background: rgba(255, 255, 255, 0.05); border: 1px solid #00e5ff; border-radius: 12px; text-align: center; backdrop-filter: blur(10px); }
+        .auth-input { width: 90%; padding: 12px; margin-bottom: 15px; background: #000; border: 1px solid #333; color: white; border-radius: 5px; }
+        .auth-btn { width: 100%; padding: 12px; background: #00e5ff; border: none; font-weight: bold; color: #000; border-radius: 5px; }
 
-        #dashboard-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 50; display:none; flex-direction: column; align-items: center; justify-content: center; }
-        .dashboard-btn { width: 160px; height: 140px; background: #222; border: 1px solid #333; border-radius: 15px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; }
-        
-        #chat-history { height: 180px; overflow-y: scroll; padding: 10px; color: #ddd; }
-        #input-row { display: flex; padding: 10px; }
-        #msgInput { flex-grow: 1; background: #222; border: 1px solid #444; color: white; padding: 8px; }
+        #dashboard-view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: #000; z-index: 150; display:none; flex-direction: column; align-items: center; justify-content: center; }
+        .dashboard-btn { width: 200px; padding: 30px; background: #111; border: 1px solid #00e5ff; border-radius: 15px; cursor: pointer; text-align: center; transition: 0.3s; }
+        .dashboard-btn:hover { background: #00e5ff; color: #000; }
     </style>
 </head>
 <body>
 
-    <!-- HUD -->
+    <!-- BATTLE HUD -->
     <div id="battle-hud">
-        <div style="color:#00e5ff; font-weight:bold;">REAL-TIME AVATAR HUD</div>
-        <div class="score-row">
-            <div class="score-box">
-                <div style="font-size:10px;">MY PACKETS</div>
-                <div id="my-score" style="font-size:20px;">0</div>
-            </div>
-            <div class="score-box">
-                <div style="font-size:10px;">GLOBAL</div>
-                <div id="global-score" style="font-size:20px;">0</div>
-            </div>
+        <div style="color:#00e5ff; font-weight:bold; letter-spacing: 2px;">AVATAR ONLINE</div>
+        <div style="display:flex; justify-content: space-around; margin-top:10px;">
+            <div><small>USER</small><div id="hud-user" style="font-size:18px;">-</div></div>
+            <div><small>MESSAGES</small><div id="my-score" style="font-size:18px;">0</div></div>
         </div>
     </div>
 
-    <!-- Login -->
+    <!-- LOGIN SCREEN -->
     <div id="login-view" class="auth-container">
         <div class="auth-box">
-            <h2>IMVU: NEXT GEN</h2>
+            <h1 style="margin-top:0;">IMVU CLONE</h1>
             <input type="text" id="login-user" class="auth-input" placeholder="Username">
-            <button class="auth-btn" onclick="handleLogin()">CONNECT</button>
+            <button class="auth-btn" onclick="handleLogin()">ENTER THE GRID</button>
         </div>
     </div>
 
-    <!-- Dashboard -->
+    <!-- DASHBOARD -->
     <div id="dashboard-view">
-        <h1>WELCOME TO THE GRID</h1>
+        <h1 style="font-size:40px; margin-bottom:40px;">WELCOME</h1>
         <div class="dashboard-btn" onclick="enterRoom()">
-            <div style="font-size:40px;">🌐</div>
-            <div>Enter Room</div>
+            <div style="font-size:40px;">🚀</div>
+            <div style="font-weight:bold; margin-top:10px;">CONNECT TO SERVER</div>
         </div>
     </div>
 
-    <!-- Room View -->
+    <!-- ROOM VIEW -->
     <div id="room-view" style="display:none;">
-        <div id="canvas-container" style="position:absolute; width:100%; height:100%;"></div>
-        <button id="exit-btn" onclick="location.reload()">DISCONNECT</button>
+        <div id="canvas-container" style="position:absolute; top:0; left:0; width:100%; height:100%;"></div>
         
         <div id="ui-layer">
             <div id="imvu-chat-panel">
-                <div id="chat-history"></div>
-                <div id="input-row">
-                    <input type="text" id="msgInput" placeholder="Say something...">
-                    <button onclick="sendMsg()" style="padding:10px; background:#00e5ff; border:none;">SEND</button>
+                <div id="chat-interface-wrapper">
+                    <div id="chat-history"></div>
+                    <div id="input-row">
+                        <input type="text" id="msgInput" placeholder="Type a message..." autocomplete="off">
+                        <button id="send-btn" onclick="sendMsg()">SEND</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -101,10 +101,8 @@
     <script>
         const socket = io();
         let currentUser = "Guest";
-        let mySocketId = null;
         const avatars = {};
 
-        // Login Logic
         function handleLogin() {
             currentUser = document.getElementById('login-user').value || "Guest";
             document.getElementById('login-view').style.display = 'none';
@@ -115,55 +113,60 @@
             document.getElementById('dashboard-view').style.display = 'none';
             document.getElementById('room-view').style.display = 'block';
             document.getElementById('battle-hud').style.display = 'block';
+            document.getElementById('hud-user').innerText = currentUser;
             socket.emit('join game', currentUser);
             animate();
         }
 
-        // --- 3D SCENE SETUP ---
+        // --- THREE.JS SCENE ---
         const scene = new THREE.Scene();
-        scene.background = new THREE.Color(0x050510);
-        const camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 1000);
-        camera.position.set(0, 8, 15);
-        
+        scene.background = new THREE.Color(0x020205);
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+        camera.position.set(0, 4, 10);
+
         const renderer = new THREE.WebGLRenderer({ antialias: true });
         renderer.setSize(window.innerWidth, window.innerHeight);
         document.getElementById('canvas-container').appendChild(renderer.domElement);
 
-        const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.2);
+        const light = new THREE.HemisphereLight(0xffffff, 0x444444, 1.5);
         scene.add(light);
-        const grid = new THREE.GridHelper(100, 50, 0x00e5ff, 0x222222);
+        
+        const grid = new THREE.GridHelper(50, 50, 0x00e5ff, 0x111111);
         scene.add(grid);
 
         const loader = new THREE.GLTFLoader();
 
-        // --- SPAWN AVATAR (WITH FIXED SCALE) ---
         function spawnAvatar(id, data) {
             if(avatars[id]) return;
 
-            // !! IMPORTANT: Make sure this name is exact !!
+            // Load your Blender Model
             loader.load('models/male_avatar.glb', (gltf) => {
                 const model = gltf.scene;
                 
-                // ADJUST SCALE HERE: 0.01 is usually perfect for Blender imports
+                // Scale it down significantly for Blender exports
                 model.scale.set(0.01, 0.01, 0.01); 
-                
                 model.position.set(data.x, 0, data.z);
-                model.userData = { username: data.username, socketId: id };
                 scene.add(model);
 
                 const mixer = new THREE.AnimationMixer(model);
-                const actions = {};
                 
-                // Generic animation loader
-                gltf.animations.forEach(clip => {
-                    actions[clip.name.toLowerCase()] = mixer.clipAction(clip);
-                });
+                // FIND BREATHING/IDLE ANIMATION
+                // We search for names like 'idle', 'breathing', or just take the first clip
+                let idleClip = gltf.animations.find(a => 
+                    a.name.toLowerCase().includes('idle') || 
+                    a.name.toLowerCase().includes('breath')
+                );
 
-                // Play first available animation or idle
-                if(actions['idle']) actions['idle'].play();
-                else if(gltf.animations.length > 0) mixer.clipAction(gltf.animations[0]).play();
+                if (!idleClip && gltf.animations.length > 0) {
+                    idleClip = gltf.animations[0]; // Fallback to first animation
+                }
 
-                avatars[id] = { mesh: model, mixer, actions, target: new THREE.Vector3(data.x, 0, data.z) };
+                if (idleClip) {
+                    const action = mixer.clipAction(idleClip);
+                    action.play();
+                }
+
+                avatars[id] = { mesh: model, mixer };
             });
         }
 
@@ -171,30 +174,9 @@
         socket.on('init players', (p) => { for(let id in p) spawnAvatar(id, p[id]); });
         socket.on('new player', (p) => spawnAvatar(p.id, p));
         socket.on('remove player', (id) => { if(avatars[id]){ scene.remove(avatars[id].mesh); delete avatars[id]; } });
-        
-        socket.on('player moved', (data) => {
-            if(avatars[data.id]) {
-                avatars[data.id].target.set(data.x, 0, data.z);
-                avatars[data.id].mesh.lookAt(data.x, 0, data.z);
-            }
-        });
 
-        // Movement Click
-        window.addEventListener('mousedown', (e) => {
-            if(document.getElementById('room-view').style.display === 'none') return;
-            if(e.target.closest('#imvu-chat-panel')) return;
-
-            const mouse = new THREE.Vector2((e.clientX/window.innerWidth)*2-1, -(e.clientY/window.innerHeight)*2+1);
-            const raycaster = new THREE.Raycaster();
-            raycaster.setFromCamera(mouse, camera);
-            const intersects = raycaster.intersectObject(grid);
-            if(intersects.length > 0) {
-                socket.emit('move', { x: intersects[0].point.x, z: intersects[0].point.z });
-            }
-        });
-
-        // Chat
-        let globalScore = 0; let myScore = 0;
+        // Chat Logic
+        let msgCount = 0;
         function sendMsg() {
             const val = document.getElementById('msgInput').value;
             if(val) {
@@ -202,43 +184,48 @@
                 document.getElementById('msgInput').value = '';
             }
         }
+        
         socket.on('chat message', (data) => {
-            globalScore++;
-            if(data.username === currentUser) myScore++;
-            document.getElementById('global-score').innerText = globalScore;
-            document.getElementById('my-score').innerText = myScore;
-
-            const div = document.createElement('div');
-            div.innerHTML = `<b>${data.username}:</b> ${data.message}`;
-            document.getElementById('chat-history').appendChild(div);
-            document.getElementById('chat-history').scrollTop = 9999;
-            
-            // Create bubble above head
-            createBubble(data.username, data.message);
+            if(data.username === currentUser) {
+                msgCount++;
+                document.getElementById('my-score').innerText = msgCount;
+            }
+            const hist = document.getElementById('chat-history');
+            const line = document.createElement('div');
+            line.style.marginBottom = "5px";
+            line.innerHTML = `<span class="username">${data.username}:</span> <span>${data.message}</span>`;
+            hist.appendChild(line);
+            hist.scrollTop = hist.scrollHeight;
         });
 
-        function createBubble(user, msg) {
-            const b = document.createElement('div');
-            b.className = 'chat-bubble'; b.innerText = msg;
-            document.body.appendChild(b);
-            // Simple positioning logic
-            b.style.left = '50%'; b.style.top = '50%';
-            setTimeout(() => b.remove(), 2500);
-        }
-
-        // Loop
+        // Animation Loop
         const clock = new THREE.Clock();
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.enableDamping = true;
+
         function animate() {
             requestAnimationFrame(animate);
             const delta = clock.getDelta();
+            
+            // Update animations (Breathing)
             for(let id in avatars) {
                 if(avatars[id].mixer) avatars[id].mixer.update(delta);
-                avatars[id].mesh.position.lerp(avatars[id].target, 0.1);
             }
+            
             controls.update();
             renderer.render(scene, camera);
         }
+
+        // Handle enter key
+        document.getElementById('msgInput').addEventListener("keydown", (e) => {
+            if (e.key === "Enter") sendMsg();
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
     </script>
 </body>
 </html>
