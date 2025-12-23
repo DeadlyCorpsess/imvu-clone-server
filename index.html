@@ -354,19 +354,35 @@
         socket.on('remove player',(id)=>{ delete roomPlayers[id]; if(avatars[id]){scene.remove(avatars[id].mesh);delete avatars[id];} if(document.getElementById('room-card-overlay').style.display==='flex' && isInRoom)openRoomCard(true); });
         socket.on('player moved',(d)=>{ if(avatars[d.id]){ const av=avatars[d.id]; av.target.set(d.x,0,d.z); av.mesh.lookAt(d.x,0,d.z); if(av.action!=='Walking'){ if(av.actions['Idle'])av.actions['Idle'].fadeOut(0.2); if(av.actions['Sitting'])av.actions['Sitting'].fadeOut(0.2); if(av.actions['Walking'])av.actions['Walking'].reset().fadeIn(0.2).play(); av.action='Walking'; } } });
 
+        // ROBOT LOADING (Official URL + Fallback)
         function spawnAvatar(id,d){ 
             if(avatars[id])return; 
-            loader.load('https://cdn.jsdelivr.net/gh/mrdoob/three.js@master/examples/models/gltf/RobotExpressive/RobotExpressive.glb',(gltf)=>{ 
-                const m=gltf.scene; m.scale.set(0.4,0.4,0.4); m.position.set(d.x,0,d.z); 
-                m.traverse((o)=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}}); 
-                m.userData={username:d.username,socketId:id}; 
-                scene.add(m); 
-                const mixer=new THREE.AnimationMixer(m); const actions={}; 
-                ['Idle','Walking','Sitting'].forEach(n=>{const c=THREE.AnimationClip.findByName(gltf.animations,n);if(c)actions[n]=mixer.clipAction(c);}); 
-                if(actions['Idle'])actions['Idle'].play(); 
-                avatars[id]={mesh:m,mixer,actions,action:'Idle',target:new THREE.Vector3(d.x,0,d.z)}; 
-                if(id===mySocketId)renderChatLine('system',null,"You have entered the room."); else renderChatLine('system',null,`${d.username} has joined.`); 
-            }); 
+            loader.load('https://threejs.org/examples/models/gltf/RobotExpressive/RobotExpressive.glb', 
+                (gltf)=>{ 
+                    const m=gltf.scene; m.scale.set(0.4,0.4,0.4); m.position.set(d.x,0,d.z); 
+                    m.traverse((o)=>{if(o.isMesh){o.castShadow=true;o.receiveShadow=true;}}); 
+                    m.userData={username:d.username,socketId:id}; 
+                    scene.add(m); 
+                    const mixer=new THREE.AnimationMixer(m); const actions={}; 
+                    ['Idle','Walking','Sitting'].forEach(n=>{const c=THREE.AnimationClip.findByName(gltf.animations,n);if(c)actions[n]=mixer.clipAction(c);}); 
+                    if(actions['Idle'])actions['Idle'].play(); 
+                    avatars[id]={mesh:m,mixer,actions,action:'Idle',target:new THREE.Vector3(d.x,0,d.z)}; 
+                    if(id===mySocketId)renderChatLine('system',null,"You have entered the room."); else renderChatLine('system',null,`${d.username} has joined.`); 
+                },
+                undefined, 
+                (err) => {
+                    // FALLBACK if robot fails
+                    console.error("Robot load failed, using fallback", err);
+                    const geo = new THREE.CylinderGeometry(0.5, 0.5, 1.5, 16);
+                    const mat = new THREE.MeshStandardMaterial({color: 0x00ff00});
+                    const mesh = new THREE.Mesh(geo, mat);
+                    mesh.position.set(d.x, 0.75, d.z);
+                    mesh.userData = {username:d.username, socketId:id};
+                    scene.add(mesh);
+                    avatars[id] = {mesh: mesh, mixer: null, actions: {}, action: 'Idle', target: new THREE.Vector3(d.x,0,d.z)};
+                    if(id===mySocketId)renderChatLine('system',null,"You have entered (Fallback mode).");
+                }
+            ); 
         }
         
         function createChatBubble(u,t){ let s=null; for(let id in avatars)if(avatars[id].mesh.userData.username===u)s=avatars[id].mesh; if(!s)return; const p=s.position.clone().add(new THREE.Vector3(0,2,0)); p.project(camera); const x=(p.x*.5+.5)*window.innerWidth; const y=(-(p.y*.5)+.5)*window.innerHeight; const b=document.createElement('div'); b.className='chat-bubble'; b.innerText=t; b.style.left=x+'px'; b.style.top=y+'px'; document.getElementById('room-view').appendChild(b); setTimeout(()=>b.remove(),2500); }
