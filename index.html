@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Fixed Login</title>
+    <title>IMVU Clone - Live Room Card</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         /* GLOBAL RESET */
@@ -55,7 +55,7 @@
         /* --- POPUP ROOM CARD --- */
         #room-card-overlay {
             position: absolute; top:0; left:0; width:100%; height:100%;
-            background: rgba(0,0,0,0.7); z-index: 100;
+            background: rgba(0,0,0,0.7); z-index: 500; /* Higher than everything */
             display: none; align-items: center; justify-content: center;
         }
         .imvu-room-card {
@@ -79,12 +79,10 @@
         .section-label { background: #eee; color: #88aadd; font-weight: bold; padding: 2px 5px; margin-bottom: 5px; width: fit-content; }
         .description-box { margin-bottom: 10px; color: #333; height: 40px; overflow-y: auto; font-size: 10px; }
         
-        /* Occupants Table */
         .occupants-table { width: 100%; border-collapse: collapse; background: #fff; border: 1px solid #ccc; }
         .occupants-table th { background: #fff; text-align: left; padding: 4px; border-bottom: 1px solid #ccc; color: #999; font-weight: normal; font-size: 10px; }
         .occupants-table td { padding: 4px; font-size: 11px; color: #333; }
         .occupants-table tr:nth-child(even) { background: #f0f0f0; }
-        .occupants-table tr:hover { background: #e0f0ff; }
         
         .card-footer {
             background: #eee; padding: 8px; border-top: 1px solid #ccc;
@@ -102,13 +100,27 @@
         #room-view { position: relative; width: 100%; height: 100%; }
         #canvas-container { position: absolute; top:0; left:0; width:100%; height:100%; z-index:1; background:#000; }
         
-        #scene-rating-box {
+        /* SCENE HEADER (Stars + Info Icon) */
+        #scene-header {
             position: absolute; top: 10px; left: 10px; z-index: 150;
+            display: flex; gap: 5px;
+        }
+        #scene-rating-box {
             background: rgba(0,0,0,0.6); padding: 5px; border: 1px solid #555;
             color: white; font-size: 10px; display: flex; align-items: center;
         }
         .mini-stars { color: #555; cursor: pointer; margin-left: 5px; font-size: 14px; }
         .mini-stars.active { color: #ffd700; }
+        
+        /* The White 'i' Symbol */
+        #info-btn {
+            width: 26px; height: 26px; background: linear-gradient(to bottom, #fff, #ccc);
+            border: 1px solid #999; border-radius: 50%; color: black;
+            font-weight: bold; font-family: serif; font-size: 14px; font-style: italic;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+        }
+        #info-btn:hover { background: #fff; }
 
         #imvu-chat-panel { pointer-events: auto; width: 100%; background-color: rgba(0, 0, 0, 0.85); display: flex; flex-direction: column; border-top: 2px solid #333; position: absolute; bottom: 0; z-index: 200; height: 150px; }
         #chat-interface-wrapper { display: block; padding: 5px; flex-grow: 1; display: flex; flex-direction: column; }
@@ -186,14 +198,14 @@
                 <select class="filter-select"><option>All</option></select>
             </div>
             <div class="rooms-grid">
-                <div class="room-listing" onclick="openRoomCard()">
+                <div class="room-listing" onclick="openRoomCard(false)">
                     <div class="listing-thumb">
                         <img src="https://raw.githubusercontent.com/mrdoob/three.js/master/examples/textures/brick_diffuse.jpg" alt="Room">
                     </div>
                     <div class="listing-info">
                         <div class="listing-name">Robot Lounge</div>
                         <div class="listing-author">by Admin</div>
-                        <div style="color:#ffd700; font-size:10px;">★★★★☆</div>
+                        <div style="color:#ffd700; font-size:10px;" id="listing-stars">☆☆☆☆☆</div>
                     </div>
                 </div>
             </div>
@@ -218,19 +230,25 @@
             <div class="card-body">
                 <div class="section-label">room occupants</div>
                 <table class="occupants-table">
-                    <thead><tr><th>name</th><th>gender</th><th>age</th><th>size</th></tr></thead>
-                    <tbody id="occupant-list"></tbody>
+                    <thead><tr><th>name</th><th>gender</th><th>size</th><th></th></tr></thead>
+                    <tbody id="occupant-list">
+                        <!-- Dynamic Content -->
+                    </tbody>
                 </table>
             </div>
             <div class="card-footer">
-                <button class="go-btn-large" onclick="enterRoom()">Go</button>
+                <button class="go-btn-large" id="card-go-btn" onclick="enterRoom()">Go</button>
             </div>
         </div>
     </div>
 
     <!-- 6. 3D GAME ROOM -->
     <div id="room-view">
-        <div id="scene-rating-box">Rate: <span id="scene-stars" class="mini-stars" onclick="rateRoom(event)">☆☆☆☆☆</span></div>
+        <div id="scene-header">
+            <div id="scene-rating-box">Rate: <span id="scene-stars" class="mini-stars" onclick="rateRoom(event)">☆☆☆☆☆</span></div>
+            <div id="info-btn" onclick="openRoomCard(true)">i</div>
+        </div>
+
         <div id="canvas-container"></div>
         <div id="avatar-menu">
             <div class="action-item" onclick="closeAvatarMenu()">View Profile</div>
@@ -252,92 +270,138 @@
     </div>
 
     <script>
-        // --- SOCKET SETUP ---
+        // --- DATA & STATE ---
         const socket = io();
         let currentUser = "Guest";
         let mySocketId = null;
-        let currentRating = 0; 
+        let roomPlayers = {}; // Holds dynamic player list
+        let isInRoom = false; // Tracks if we are actually in the room
 
-        // Mock Data
-        const mockOccupants = [
-            { name: "ashleylitewolf", gender: "female", age: 46, kb: "2,145 kb", country: "🇨🇦" },
-            { name: "ElisariaLoth", gender: "hidden", age: 33, kb: "5,185 kb", country: "🇺🇸" }
-        ];
+        // Initialize Rating from LocalStorage (persists on refresh)
+        let currentRating = parseInt(localStorage.getItem('room_rating')) || 0;
 
         socket.on('connect', () => { mySocketId = socket.id; });
 
-        // --- AUTH LOGIC (FIXED: Uses LocalStorage now) ---
+        // --- AUTH ---
+        function getLocalUsers() { return JSON.parse(localStorage.getItem('imvu_users') || '{}'); }
+        
         function showSignup() { document.getElementById('login-view').style.display='none'; document.getElementById('signup-view').style.display='flex'; }
         function showLogin() { document.getElementById('signup-view').style.display='none'; document.getElementById('login-view').style.display='flex'; }
         
-        function getLocalUsers() { return JSON.parse(localStorage.getItem('imvu_users') || '{}'); }
-
         async function handleSignup() {
             const u = document.getElementById('signup-user').value.trim();
             const p = document.getElementById('signup-pass').value.trim();
-            if(!u || !p) { alert("Please fill fields"); return; }
-            
+            if(!u || !p) return;
             const users = getLocalUsers();
-            if(users[u]) {
-                document.getElementById('signup-error').innerText = "Username taken";
-                document.getElementById('signup-error').style.display = 'block';
-                return;
-            }
+            if(users[u]) { document.getElementById('signup-error').style.display='block'; return; }
             users[u] = p;
             localStorage.setItem('imvu_users', JSON.stringify(users));
-            alert("Registered! Please login.");
-            showLogin();
+            alert("Registered! Please login."); showLogin();
         }
 
         async function handleLogin() {
             const u = document.getElementById('login-user').value.trim();
             const p = document.getElementById('login-pass').value.trim();
             const users = getLocalUsers();
-            
             if(users[u] && users[u] === p) {
                 currentUser = u;
                 document.getElementById('login-view').style.display='none'; 
                 document.getElementById('dashboard-view').style.display='block';
-            } else {
-                document.getElementById('login-error').innerText = "Invalid credentials";
-                document.getElementById('login-error').style.display='block'; 
-            }
+            } else { document.getElementById('login-error').style.display='block'; }
         }
 
         // --- NAVIGATION ---
         function openRoomBrowser() {
             document.getElementById('dashboard-view').style.display = 'none';
             document.getElementById('room-list-view').style.display = 'flex';
+            // Init stars on browser
+            updateStarsDisplay(currentRating);
         }
 
-        function openRoomCard() {
+        function openRoomCard(fromInsideRoom) {
             const tbody = document.getElementById('occupant-list');
             tbody.innerHTML = "";
-            mockOccupants.forEach(user => {
-                tbody.innerHTML += `<tr><td><span style="font-size:12px;">${user.country}</span> <u>${user.name}</u></td><td>${user.gender}</td><td>${user.age}</td><td>${user.kb}</td></tr>`;
-            });
-            tbody.innerHTML += `<tr style="background:#ffffcc;"><td><span style="font-size:12px;">🇺🇸</span> <u>${currentUser}</u></td><td>hidden</td><td>NA</td><td>4,200 kb</td></tr>`;
+
+            if (!isInRoom) {
+                // CASE 1: Opening from Browser (NOT in room yet)
+                // Request: "Make it so it only shows me in the room card"
+                // We fake "me" being the only one visible on the card preview
+                tbody.innerHTML = `
+                    <tr style="background:#ffffcc;">
+                        <td><span style="font-size:12px;">🇺🇸</span> <u>${currentUser}</u></td>
+                        <td>hidden</td>
+                        <td>4,200 kb</td>
+                        <td><span style="color:#888; font-size:9px;">(You)</span></td>
+                    </tr>
+                `;
+                document.getElementById('card-go-btn').style.display = 'block'; // Show Go button
+            } else {
+                // CASE 2: Opening from inside the 3D Room ("i" button)
+                // Request: "Updates when another player joins"
+                // We use the real roomPlayers list
+                document.getElementById('card-go-btn').style.display = 'none'; // Hide Go button (already there)
+                
+                // Add Me first
+                tbody.innerHTML += `
+                    <tr style="background:#ffffcc;">
+                        <td><span style="font-size:12px;">🇺🇸</span> <u>${currentUser}</u></td>
+                        <td>hidden</td>
+                        <td>4,200 kb</td>
+                        <td><span style="color:#888; font-size:9px;">(You)</span></td>
+                    </tr>
+                `;
+                
+                // Add Others
+                for (let id in roomPlayers) {
+                    if (id === mySocketId) continue; // Skip self (already added)
+                    let p = roomPlayers[id];
+                    tbody.innerHTML += `
+                        <tr>
+                            <td><span style="font-size:12px;">🏳️</span> <u>${p.username}</u></td>
+                            <td>?</td>
+                            <td>${Math.floor(Math.random() * 5000)} kb</td>
+                            <td><a href="#" style="color:#888; font-size:9px;">+ add</a></td>
+                        </tr>
+                    `;
+                }
+            }
+
+            // Sync rating before showing
             updateStarsDisplay(currentRating);
             document.getElementById('room-card-overlay').style.display = 'flex';
         }
 
         function closeRoomCard() { document.getElementById('room-card-overlay').style.display = 'none'; }
 
+        // --- RATING SYSTEM (Synced & Persisted) ---
         function rateRoom(e) {
+            e.stopPropagation(); // Prevent clicking through to scene
             if(currentRating < 5) currentRating++; else currentRating = 0;
+            
+            // Save to browser
+            localStorage.setItem('room_rating', currentRating);
+            
             updateStarsDisplay(currentRating);
         }
 
         function updateStarsDisplay(rating) {
             const stars = "★★★★★".substring(0, rating) + "☆☆☆☆☆".substring(0, 5 - rating);
+            
+            // Update Card
             document.getElementById('card-stars').innerText = stars;
+            document.getElementById('rating-text').innerText = `(${rating}/5)`;
+            
+            // Update Scene Overlay
             document.getElementById('scene-stars').innerText = stars;
             document.getElementById('scene-stars').className = rating > 0 ? "mini-stars active" : "mini-stars";
-            document.getElementById('rating-text').innerText = `(${rating}/5)`;
+            
+            // Update Browser Listing
+            document.getElementById('listing-stars').innerText = stars;
         }
 
         function enterRoom() {
             closeRoomCard();
+            isInRoom = true; // Flag we are inside
             document.getElementById('room-list-view').style.display = 'none';
             document.getElementById('room-view').style.display = 'block';
             onWindowResize();
@@ -393,9 +457,37 @@
 
         const avatars = {}; const loader = new THREE.GLTFLoader();
 
-        socket.on('init players', (serverPlayers) => { for(let id in serverPlayers) { spawnAvatar(id, serverPlayers[id]); } });
-        socket.on('new player', (p) => { spawnAvatar(p.id, p); });
-        socket.on('remove player', (id) => { if(avatars[id]) { scene.remove(avatars[id].mesh); delete avatars[id]; } });
+        // --- DYNAMIC PLAYER LIST MANAGEMENT ---
+        socket.on('init players', (serverPlayers) => { 
+            roomPlayers = serverPlayers; // Update local list
+            for(let id in serverPlayers) { spawnAvatar(id, serverPlayers[id]); } 
+            
+            // If card is open, refresh it to show new list
+            if(document.getElementById('room-card-overlay').style.display === 'flex' && isInRoom) {
+                openRoomCard(true); 
+            }
+        });
+        
+        socket.on('new player', (p) => { 
+            roomPlayers[p.id] = p; // Add to local list
+            spawnAvatar(p.id, p); 
+            
+            // If card is open, refresh it
+            if(document.getElementById('room-card-overlay').style.display === 'flex' && isInRoom) {
+                openRoomCard(true);
+            }
+        });
+        
+        socket.on('remove player', (id) => { 
+            delete roomPlayers[id]; // Remove from local list
+            if(avatars[id]) { scene.remove(avatars[id].mesh); delete avatars[id]; } 
+            
+            // If card is open, refresh it
+            if(document.getElementById('room-card-overlay').style.display === 'flex' && isInRoom) {
+                openRoomCard(true);
+            }
+        });
+
         socket.on('player moved', (data) => {
             if(avatars[data.id]) {
                 const av = avatars[data.id]; av.target.set(data.x, 0, data.z); av.mesh.lookAt(data.x, 0, data.z);
@@ -433,7 +525,7 @@
         const raycaster = new THREE.Raycaster(); const mouse = new THREE.Vector2(); const nodes = []; const seats = [];
         function createNode(x, z, type='walk', y=0.05) {
             const geo = new THREE.CylinderGeometry(type==='seat'?0.4:1, type==='seat'?0.4:1, 0.1, 16);
-            const color = 0xffff00; // All yellow
+            const color = 0xffff00; 
             const mat = new THREE.MeshBasicMaterial({ color: color, opacity: 0.4, transparent: true });
             const node = new THREE.Mesh(geo, mat); node.position.set(x, y, z); node.userData = { type: type, x: x, z: z };
             scene.add(node); nodes.push(node); if(type === 'seat') seats.push(node);
@@ -442,6 +534,9 @@
 
         renderer.domElement.addEventListener('pointerdown', (e) => {
             if(document.getElementById('room-view').style.display==='none') return;
+            // Prevent interaction if clicking through UI overlay
+            if(document.getElementById('room-card-overlay').style.display === 'flex') return;
+
             const rect = renderer.domElement.getBoundingClientRect();
             mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1; mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
             raycaster.setFromCamera(mouse, camera);
