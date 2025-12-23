@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>IMVU Clone - Robot Spam Edition</title>
+    <title>IMVU Clone - Chat Spam War</title>
     <script src="/socket.io/socket.io.js"></script>
     <style>
         /* GLOBAL RESET */
@@ -12,7 +12,7 @@
         /* UI OVERLAYS */
         #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; display: flex; flex-direction: column; justify-content: flex-end; }
         
-        /* CLASSIC CHAT PANEL STYLES */
+        /* CLASSIC CHAT PANEL */
         #imvu-chat-panel { pointer-events: auto; width: 100%; background-color: rgba(0, 0, 0, 0.8); display: flex; flex-direction: column; border-top: 2px solid #333; transition: height 0.3s; }
         
         #exit-btn { pointer-events: auto; position: absolute; top: 10px; right: 10px; background: #d32f2f; color: white; border: 1px solid #fff; padding: 5px 10px; font-weight: bold; font-size: 12px; z-index: 200; }
@@ -32,36 +32,18 @@
         .mps-val { font-size: 11px; color: #aaa; }
         .control-row { margin-top: 10px; border-top: 1px solid #333; padding-top: 5px; color: #888; font-size: 11px; }
 
-        /* --- 3D CHAT BUBBLES (STACKING & WOBBLY) --- */
+        /* --- 3D BUBBLES (Standard) --- */
         .chat-bubble {
-            position: absolute; 
-            background: white; 
-            color: black; 
-            padding: 5px 10px; 
-            border-radius: 8px;
-            font-size: 11px; 
-            font-weight: bold; 
-            font-family: 'Verdana', sans-serif;
-            border: 1px solid #000; 
-            box-shadow: 3px 3px 0px rgba(0,0,0,0.2);
-            pointer-events: none; 
-            white-space: nowrap; 
-            z-index: 5;
-            
-            /* Smoothly slide up when stacked */
-            transition: top 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
-            
-            /* The Pop-in Animation */
-            animation: bubblePop 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
-            transform-origin: center bottom;
+            position: absolute; background: white; color: black; padding: 4px 8px; border-radius: 8px;
+            font-size: 11px; font-weight: bold; font-family: 'Verdana', sans-serif;
+            border: 1px solid #000; box-shadow: 2px 2px 0px rgba(0,0,0,0.3);
+            pointer-events: none; white-space: nowrap; z-index: 5; 
+            animation: floatUp 3s forwards; opacity: 0.9;
         }
-
-        /* WOBBLY POP ANIMATION */
-        @keyframes bubblePop {
-            0% { transform: scale(0) translateY(20px) rotate(-5deg); opacity: 0; }
-            50% { transform: scale(1.2) translateY(-5px) rotate(3deg); opacity: 1; }
-            70% { transform: scale(0.9) translateY(0) rotate(-2deg); }
-            100% { transform: scale(1) translateY(0) rotate(0deg); opacity: 1; }
+        @keyframes floatUp {
+            0% { transform: translateY(0); opacity: 1; }
+            80% { opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
         }
 
         /* --- AVATAR MENU --- */
@@ -93,13 +75,43 @@
         .dashboard-btn { width: 150px; height: 120px; background: linear-gradient(to bottom, #555, #333 50%, #222); border: 1px solid #666; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: transform 0.2s; }
         .dashboard-btn:hover { filter: brightness(1.2); transform: scale(1.05); }
 
-        /* CLASSIC CHAT CSS (Yellow/Black) */
+        /* --- ANIMATED CHATBOX CSS --- */
         #chat-interface-wrapper { display: block; }
-        #chat-history { height: 200px; overflow-y: scroll; padding: 10px; font-size: 13px; line-height: 1.5; color: white; scrollbar-width: thin; scrollbar-color: #444 #111; }
-        .chat-line { margin-bottom: 2px; font-family: 'Verdana', sans-serif; font-size: 12px; }
+        
+        #chat-history { 
+            height: 200px; 
+            overflow-y: scroll; 
+            padding: 10px; 
+            font-size: 13px; 
+            line-height: 1.5; 
+            color: white; 
+            scrollbar-width: thin; 
+            scrollbar-color: #444 #111; 
+        }
+
+        /* THE BOUNCY ANIMATION FOR CHAT LINES */
+        @keyframes chatBounce {
+            0% { opacity: 0; transform: translateX(-20px) scale(0.8); }
+            50% { opacity: 1; transform: translateX(5px) scale(1.05); }
+            70% { transform: translateX(-2px) scale(0.98); }
+            100% { opacity: 1; transform: translateX(0) scale(1); }
+        }
+
+        .chat-line { 
+            margin-bottom: 4px; 
+            font-family: 'Verdana', sans-serif; 
+            font-size: 12px;
+            
+            /* Apply the animation here */
+            animation: chatBounce 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+            transform-origin: left center;
+            display: block; /* Ensure it takes up space */
+        }
+
         .username { color: #8FBC8F; font-weight: bold; cursor: pointer; }
         .message-text { color: #e0e0e0; }
         .system-msg { color: #ffd700; font-style: italic; font-weight: bold; } 
+        
         #input-row { display: flex; background-color: #111; padding: 4px; align-items: center; border-top: 1px solid #333; }
         #msgInput { flex-grow: 1; background-color: #222; border: 1px solid #555; color: white; padding: 5px 8px; font-size: 12px; outline: none; }
         #send-btn { background: linear-gradient(to bottom, #ffeb3b, #fbc02d); border: 1px solid #c49000; color: black; font-weight: bold; font-size: 12px; padding: 5px 20px; margin-left: 5px; cursor: pointer; }
@@ -117,7 +129,7 @@
 
     <!-- BATTLE HUD -->
     <div id="battle-hud">
-        <div class="hud-title">⚔️ REAL-TIME CHAT HUD ⚔️</div>
+        <div class="hud-title">⚔️ SPAM WAR HUD ⚔️</div>
         <div class="score-row">
             <div class="score-box" style="border-color: #00ff00;">
                 <div style="color:#00ff00; font-size:11px;">YOU</div>
@@ -125,12 +137,12 @@
                 <div class="mps-val" id="my-mps">0 MPS</div>
             </div>
             <div class="score-box" style="border-color: #ff5555;">
-                <div style="color:#ff5555; font-size:11px;">TOTAL SERVER CHAT</div>
+                <div style="color:#ff5555; font-size:11px;">TOTAL LINES</div>
                 <div class="score-val" id="global-score">0</div>
             </div>
         </div>
         <div class="control-row">
-            <p>Waiting for other players...</p>
+            <p>Spam to win the chat!</p>
             <button onclick="resetBattleScores()" style="background:#333; color:#fff; border:1px solid #555; padding:2px 10px; margin-top:5px; font-size:10px;">RESET STATS</button>
         </div>
     </div>
@@ -282,16 +294,25 @@
             const tolerance = 20;
             const isUserAtBottom = (chatBox.scrollHeight - chatBox.scrollTop - chatBox.clientHeight) < tolerance;
             const msgDiv = document.createElement('div');
+            
+            // Assign class for animation
             msgDiv.className = 'chat-line';
+            
             if (type === 'system') msgDiv.innerHTML = `<span class="system-msg">*** ${text} ***</span>`;
             else {
                 msgDiv.innerHTML = `<span class="username">${username}:</span> <span class="message-text">${text}</span>`;
-                // Add to 3D Bubbles
+                // Add to 3D Bubbles (Standard float)
                 createChatBubble(username, text);
             }
             chatBox.appendChild(msgDiv); 
-            if (isUserAtBottom) { chatBox.scrollTop = chatBox.scrollHeight; scrollNotice.style.display = 'none'; }
-            else { scrollNotice.style.display = 'block'; }
+            
+            // Auto-scroll logic (Force scroll to see animation)
+            if (isUserAtBottom) { 
+                chatBox.scrollTop = chatBox.scrollHeight; 
+                scrollNotice.style.display = 'none'; 
+            } else { 
+                scrollNotice.style.display = 'block'; 
+            }
         }
 
         function sendMsg() {
@@ -449,84 +470,25 @@
             });
         }
 
-        // --- STACKING BUBBLE RENDERER ---
-        // Keeps track of active bubbles for each user
-        const bubbleStacks = {}; 
-
         function createChatBubble(username, text) {
             let senderMesh = null;
-            let senderId = null;
-            
-            // 1. Find the 3D Avatar
             for(let id in avatars) {
-                if(avatars[id].mesh.userData.username === username) {
-                    senderMesh = avatars[id].mesh;
-                    senderId = id;
-                }
+                if(avatars[id].mesh.userData.username === username) senderMesh = avatars[id].mesh;
             }
             if(!senderMesh) return;
-
-            // 2. Initialize stack if not exists
-            if(!bubbleStacks[senderId]) bubbleStacks[senderId] = [];
-
-            // 3. Calculate Screen Position
-            const headPos = senderMesh.position.clone().add(new THREE.Vector3(0, 2.2, 0));
-            headPos.project(camera);
-            const x = (headPos.x * .5 + .5) * window.innerWidth;
-            const baseY = (-(headPos.y * .5) + .5) * window.innerHeight;
-
-            // 4. Create Bubble Element
-            const b = document.createElement('div');
-            b.className = 'chat-bubble'; 
-            b.innerText = text;
             
-            // 5. Add to Stack and DOM
-            bubbleStacks[senderId].push(b);
+            const headPos = senderMesh.position.clone().add(new THREE.Vector3(0, 2.0, 0));
+            headPos.project(camera);
+            
+            const x = (headPos.x * .5 + .5) * window.innerWidth;
+            const y = (-(headPos.y * .5) + .5) * window.innerHeight;
+
+            const b = document.createElement('div');
+            b.className = 'chat-bubble'; b.innerText = text;
+            b.style.left = x+'px'; b.style.top = y+'px';
             room.appendChild(b);
             
-            // 6. Update Positions for THIS User's Stack
-            updateStackPositions(senderId, x, baseY);
-
-            // 7. Remove after 5 seconds
-            setTimeout(() => {
-                b.style.opacity = '0'; // Fade out
-                // Wait for fade to finish before removing from array
-                setTimeout(() => {
-                    b.remove();
-                    // Remove from array
-                    const index = bubbleStacks[senderId].indexOf(b);
-                    if (index > -1) {
-                        bubbleStacks[senderId].splice(index, 1);
-                        // Re-adjust remaining bubbles (they fall down)
-                        updateStackPositions(senderId, x, baseY);
-                    }
-                }, 300);
-            }, 5000);
-        }
-
-        function updateStackPositions(userId, x, baseY) {
-            const stack = bubbleStacks[userId];
-            if(!stack) return;
-
-            // Loop backwards: Newest is at bottom (index = length-1), Oldest at top (index = 0)
-            // Or we can just stack them up. 
-            // Let's say Newest is at bottom.
-            
-            for (let i = 0; i < stack.length; i++) {
-                const bubble = stack[i];
-                // How many bubbles are "newer" than this one?
-                // If i is length-1 (newest), count is 0.
-                const offsetCount = (stack.length - 1) - i; 
-                
-                // Each bubble is approx 30px high + gap
-                const verticalOffset = offsetCount * 35; 
-
-                bubble.style.left = x + 'px';
-                bubble.style.top = (baseY - verticalOffset) + 'px';
-                
-                // Optional: Make older bubbles slightly transparent
-                if(offsetCount > 4) bubble.style.opacity = '0.5';
-            }
+            setTimeout(()=> { b.remove() }, 3000); 
         }
 
         // --- INTERACTION ---
@@ -614,15 +576,6 @@
                         if(av.actions['Walking']) av.actions['Walking'].fadeOut(0.2);
                         if(av.actions['Idle']) av.actions['Idle'].reset().fadeIn(0.2).play();
                         av.action = 'Idle';
-                    }
-                    
-                    // RE-UPDATE BUBBLE POSITIONS (Follow Avatar)
-                    if(bubbleStacks[id] && bubbleStacks[id].length > 0) {
-                         const headPos = av.mesh.position.clone().add(new THREE.Vector3(0, 2.2, 0));
-                         headPos.project(camera);
-                         const x = (headPos.x * .5 + .5) * window.innerWidth;
-                         const baseY = (-(headPos.y * .5) + .5) * window.innerHeight;
-                         updateStackPositions(id, x, baseY);
                     }
                 }
                 controls.update();
